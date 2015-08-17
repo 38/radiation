@@ -20,7 +20,13 @@ package com.github._38.radiation.CodeMaker {
         def render:String
         def info:List[CodeInfo] = List()
         def length = render length
+        def asCompound = this match {
+            case c:Compound => c
+            case p:Primitive => new Compound(List(p))
+        }
         def -- (that: CodeGeneratePattern):Compound = (this,that) match {
+            case (l:Empty, r) => r asCompound
+            case (l, r:Empty) => l asCompound
             case (l:Compound,r:Compound) => new Compound((l values) ++ (r values))
             case (l:Compound,r:Primitive) => new Compound((l values) :+ r)
             case (l:Primitive, r) => (l:Compound) -- r
@@ -31,6 +37,13 @@ package com.github._38.radiation.CodeMaker {
     
     trait ImportantPrimitive extends CodeGeneratePattern with Primitive;
     
+    class Empty extends CodeGeneratePattern {
+        def render = ""
+    }
+    object Empty {
+        val singleton = new Empty;
+        def apply() = singleton;
+    }
     class PlainText(text:String) extends CodeGeneratePattern with Primitive {
         def render = text;
     }
