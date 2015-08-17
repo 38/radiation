@@ -22,18 +22,21 @@ package com.github._38.radiation.CodeMaker {
         def length = render length
         def asCompound = this match {
             case c:Compound => c
+            case e:Empty => new Compound(List())
             case p:Primitive => new Compound(List(p))
         }
         def -- (that: CodeGeneratePattern):Compound = (this,that) match {
             case (l:Empty, r) => r asCompound
             case (l, r:Empty) => l asCompound
             case (l:Compound,r:Compound) => new Compound((l values) ++ (r values))
-            case (l:Compound,r:Primitive) => new Compound((l values) :+ r)
+            case (l:Compound,r:Primitive) => new Compound((l values) ++ (r emptify))
             case (l:Primitive, r) => (l:Compound) -- r
         }
     }
     
-    trait Primitive extends CodeGeneratePattern;
+    trait Primitive extends CodeGeneratePattern{
+        def emptify:List[Primitive];
+    }
     
     trait ImportantPrimitive extends CodeGeneratePattern with Primitive;
     
@@ -46,6 +49,7 @@ package com.github._38.radiation.CodeMaker {
     }
     class PlainText(text:String) extends CodeGeneratePattern with Primitive {
         def render = text;
+        def emptify = if(text == null) List() else List(this) 
     }
     class NodeList(nodes:List[Node], seperator:String) extends CodeGeneratePattern with ImportantPrimitive {
         def render = nodes map (_ targetCode) mkString seperator
@@ -54,10 +58,12 @@ package com.github._38.radiation.CodeMaker {
             case _ => List()
         }
         override def info = _scan(nodes, 0)
+        def emptify = if(nodes == null) List() else List(this) 
     }
     class SignleNode(node:Node) extends CodeGeneratePattern with ImportantPrimitive {
         def render = node targetCode
         override def info = List(CodeInfo(node, node targetCode, 0))
+        def emptify = if(node == null) List() else List(this)
     }
     class Compound(val values:List[Primitive]) extends CodeGeneratePattern {
         def render = values map (_ render) mkString

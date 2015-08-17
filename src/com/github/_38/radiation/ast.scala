@@ -44,21 +44,25 @@ package com.github._38.radiation.ast {
             case n:RhinoAST.Name                  => $(n.getString)
             case n:RhinoAST.EmptyExpression       => EmptyExpr
             case n:RhinoAST.EmptyStatement        => EmptyStat
+            case n:RhinoAST.ExpressionStatement   => ExpressionStatement(n getExpression)
             case n:RhinoAST.ForInLoop             => {
                 (n isForEach) match {
                    case (false) => ForIn  (n getIterator, n getIteratedObject, n getBody) 
                    case (true) => ForEach(n getIterator, n getIteratedObject, n getBody)
                 }
             }
+            case n:RhinoAST.FunctionCall          => Call(n getTarget, n getArguments)
         }).asInstanceOf[T]
     }
     
     trait Statement extends Node;
-    trait Expression extends Statement;
+    trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
+    trait Expression extends Statement with LHS;
     trait Scope extends Node;
     trait ControlFlow extends Statement;
     trait Loop extends ControlFlow;
-    trait ForLoop extends Loop
+    trait ForLoop extends Loop;
+    trait Function extends Node;
    
     case class Block(statements:List[Statement]) extends Statement {
         val pattern = "{" -- mkList(statements) -- "}"
@@ -87,7 +91,7 @@ package com.github._38.radiation.ast {
     case class Try(tryBlock:Block, catchBlocks:List[Catch], finallyBlock:Block) extends Statement {
         val pattern = "try" -- tryBlock -- mkList(catchBlocks) -- (if(finallyBlock != null) "finally " -- finallyBlock else Empty())
     }
-    case class $(val text:String) extends Expression {
+    case class $(text:String) extends Expression {
         val pattern = text:CodeGeneratePattern
     }
     case object EmptyExpr extends Expression {
@@ -96,13 +100,28 @@ package com.github._38.radiation.ast {
     case object EmptyStat extends Expression {
         val pattern = ";":CodeGeneratePattern
     }
-    case class ForIn(iterator:Node, iterationObject:Expression, body:Statement) extends ForLoop {
+    case class ExpressionStatement(expression:Expression) {
+        val pattern = expression -- ";"
+    }
+    case class ForIn(iterator:LHS, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for(" -- iterator -- " in " -- iterationObject -- ")" -- body
     }
-    case class ForEach(iterator:Node, iterationObject:Expression, body:Statement) extends ForLoop {
+    case class ForEach(iterator:LHS, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for each(" -- iterator -- " in " -- iterationObject -- ")" -- body
     }
-    case class ?:(cond:Expression,  trueExpr:Expression, falseExpr:Expression) extends Expression {
+    case class For(initial:LHS, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
+        val pattern = "for(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
+    }
+    case class Call(target:Expression, args:List[Expression]) extends Expression {
+        val pattern = target -- "(" -- mkList(args, ",") -- ")"
+    }
+    case class FuncDef(name:$, args:List[$], body:Block) extends Statement with Function {
+        val pattern = "function " -- name -- mkList(args, ",") -- body
+    }
+    case class FuncExp(name:$, args:List[$], body:Block) extends Expression with Function {
+        val pattern = "function " -- name -- mkList(args, ",") -- body
+    }
+    case class ?:(cond:Expression,  trueExpr:Expression, falseExpr:Expression) extends Expression with Function{
         val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
     }
    
