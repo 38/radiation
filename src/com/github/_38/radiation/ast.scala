@@ -4,6 +4,7 @@ import scala.language.implicitConversions
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken}
 import com.github._38.radiation.CodeMaker.{Conversions, CodeInfo, CodeGeneratePattern, Empty, Compound}
 import scala.math.max
+import scala.reflect.{ClassTag, classTag}
 
 package com.github._38.radiation.ast {
     import Conversions._
@@ -19,44 +20,72 @@ package com.github._38.radiation.ast {
         def apply(loc:SourceLocation) {
             location = Some(loc)
         }
+        def as[T <: Node: ClassTag]:Option[T] = this match {
+            case what if classTag[T].runtimeClass.isInstance(this) => Some(this.asInstanceOf[T])
+            case _ => None
+        }
     }
     object Node {
         def main(s:Array[String]) {
+            val test1 = Lst(List(Num("1"), Num("2")));
             //System.out.println(Lst(List(Num("1"), Num("2"))).targetCodeInfo)
-            val parser = new Parser;
+            //val parser = new Parser;
             //val ast = parser.parse("[1,2,3,4];", null, 0);
             //System.out.println((ast:Node).targetCodeInfo)
-        }
-        def _mkScalaList[T](from:java.lang.Iterable[T]):List[T] = {
-            import scala.collection.JavaConverters._
-            if(from == null) List() else from.asScala.toList 
-        }
-        def tryConvert(node:RhinoNode):Option[RhinoAST.AstNode] = 
-            if(node.isInstanceOf[RhinoAST.AstNode]) Some(node.asInstanceOf[RhinoAST.AstNode]) else None
-        def _nodeConversionImp(xs:List[RhinoNode]):List[RhinoAST.AstNode] = xs match {
-            case x :: xs => tryConvert(x) match {
-                case Some(n) => n :: _nodeConversionImp(xs)
-                case None => _nodeConversionImp(xs)
-            }
-            case List() => List()
+            System.out.println(test1.as[Expression])
         }
 
         //implicit def asListNode[T <: Node](from:java.lang.Iterable[_ <: RhinoAST.AstNode]):List[T] = _mkScalaList(from) map (rhinoAstConverter[T](_))
         
-        implicit def required[T <: Node](opt:Option[T]): T = opt match {
-            case Some(what) => what
-            case None       => throw new Exception()
+        class RhinoASTHelper(from:RhinoAST.AstNode){
+            def optional[T <: Node : ClassTag]:Option[T] = rhinoAstToInternal(from).as[T]
+            def required[T <: Node : ClassTag]:T         = rhinoAstToInternal(from).as[T] match {
+                case Some(value) => value
+                case None        => throw new Exception()
+            }
+            def list[T <: Node : ClassTag]:List[T] = {
+                import scala.collection.JavaConverters._
+                if(from == null) List[T]()
+                else _listImpl[T](from.asScala.toList)
+            }
+            def _listImpl[T <: Node : ClassTag](xs:List[RhinoNode]):List[T] = xs match {
+                case x :: xs => x match {
+                    case x:RhinoAST.AstNode => rhinoAstToInternal(x).as[T] match {
+                        case Some(n)        => n :: _listImpl(xs)
+                        case None           => _listImpl(xs)
+                    }
+                    case _                  => _listImpl(xs)
+                }
+                case List() => List()
+            }
         }
-        implicit def tryConvert[T <: Node](from: Node): Option[T] = 
-            if(from.isInstanceOf[T]) Some(from.asInstanceOf[T]) else None
-        /*implicit def rhinoAstConverter[A <: Node](rhino_node:RhinoAST.AstNode):Option[A] = rhino_node match {
-            case n:RhinoAST.Block                 => Block(n)
+        class JavaListHelper(from:java.util.List[_ <: RhinoAST.AstNode]) {
+            def list[T <: Node: ClassTag]: List[T] = {
+                import scala.collection.JavaConverters._
+                if(from == null) List[T]()
+                else _listImpl[T](from.asScala.toList)
+            }
+            def _listImpl[T <: Node: ClassTag](xs: List[RhinoAST.AstNode]):List[T] = xs match {
+                case x :: xs => rhinoAstToInternal(x).as[T] match {
+                    case Some(n)  => n :: _listImpl(xs)
+                    case None     => _listImpl(xs)
+                }
+                case List() => List()   
+            }
+        }
+
+        implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
+        implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
+
+        def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
+            case n:RhinoAST.Block                 => Block(n list)
             case _:RhinoAST.BreakStatement        => Break
-            case n:RhinoAST.CatchClause           => Catch(n getVarName, n getCatchCondition, n getBody)
+            case n:RhinoAST.CatchClause           => Catch(n.getVarName required, n.getCatchCondition required, n.getBody required)
             case n:RhinoAST.ContinueStatement     => Continue
-            case n:RhinoAST.DoLoop                => DoWhile(n.getBody, n.getCondition)
+            case n:RhinoAST.ArrayLiteral          => Lst(n.getElements list)
+            case n:RhinoAST.NumberLiteral         => Num(n toString)
+            /*case n:RhinoAST.DoLoop                => DoWhile(n.getBody.required, n.getCondition.required)
             case n:RhinoAST.ElementGet            => Index(n.getTarget, n.getElement)
-            case n:RhinoAST.ArrayLiteral          => Lst(n.getElements)
             case n:RhinoAST.TryStatement          => Try(n.getTryBlock, n.getCatchClauses, n.getFinallyBlock)
             case n:RhinoAST.ConditionalExpression => ?:(n.getTestExpression, n.getTrueExpression, n.getFalseExpression)
             case n:RhinoAST.Name                  => $(n.getString)
@@ -84,8 +113,8 @@ package com.github._38.radiation.ast {
                 statement.labels = _mkScalaList(n.getLabels) map ((_:RhinoAST.Label) getName)
                 statement
             }
-            case n:RhinoAST.AstRoot               => Program(n) 
-        }*/
+            case n:RhinoAST.AstRoot               => Program(n) */
+        }
     }
     
     trait Statement extends Node {
@@ -164,8 +193,11 @@ package com.github._38.radiation.ast {
     case class FuncDef(name:$, args:List[$], body:Block) extends Statement with Function {
         val pattern = "function " -- name -- mkList(args, ",") -- body
     }
-    case class FuncExp(name:$, args:List[$], body:Block) extends Expression with Function {
-        val pattern = "function " -- name -- mkList(args, ",") -- body
+    case class FuncExp(name:Option[$], args:List[$], body:Block) extends Expression with Function {
+        val pattern = "function " -- (name match {
+            case Some(name) => name
+            case None       => Empty()
+        }) -- mkList(args, ",") -- body
     }
     case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
         val pattern = "if(" -- cond -- ")" -- (elseCluase match {
