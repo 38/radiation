@@ -7,3 +7,4 @@ scalacOptions ++= Seq("-deprecation", "-feature")
 libraryDependencies ++= Seq(
   "org.mozilla"    %  "rhino"            % "1.7R5"
 )
+
