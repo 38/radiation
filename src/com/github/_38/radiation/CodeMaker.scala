@@ -10,8 +10,8 @@ package com.github._38.radiation.CodeMaker {
         def mkList(l:List[Node], s:String = "") = new NodeList(l, s)
     }
   
-    case class CodeInfo(node: Node, text:String, offset:Int){  /* offset against the begning of this pattern */
-        def +(base:Int) = CodeInfo(node, text, offset + base)
+    case class CodeInfo(node: Node, offset:Int){  /* offset against the begning of this pattern */
+        def +(base:Int) = CodeInfo(node, offset + base)
     }
     
     
@@ -54,7 +54,7 @@ package com.github._38.radiation.CodeMaker {
     class NodeList(nodes:List[Node], seperator:String) extends CodeGeneratePattern with ImportantPrimitive {
         def render = nodes map (_ targetCode) mkString seperator
         def _scan(todo:List[Node], offset:Int):List[CodeInfo] = todo match {
-            case x :: xs => CodeInfo(x, x targetCode, offset) :: _scan(xs, (x length) + offset + (seperator length))
+            case x :: xs => CodeInfo(x, offset) :: _scan(xs, (x length) + offset + (seperator length))
             case _ => List()
         }
         override def info = _scan(nodes, 0)
@@ -62,7 +62,7 @@ package com.github._38.radiation.CodeMaker {
     }
     class SignleNode(node:Node) extends CodeGeneratePattern with ImportantPrimitive {
         def render = node targetCode
-        override def info = List(CodeInfo(node, node targetCode, 0))
+        override def info = List(CodeInfo(node, 0))
         def emptify = if(node == null) List() else List(this)
     }
     class Compound(val values:List[Primitive]) extends CodeGeneratePattern {

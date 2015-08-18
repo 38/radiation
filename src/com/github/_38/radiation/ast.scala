@@ -26,25 +26,42 @@ package com.github._38.radiation.ast {
         }
     }
     object Node {
+        import scala.collection.JavaConverters._
         def main(s:Array[String]) {
             val test1 = Lst(List(Num("1"), Num("2")));
             //System.out.println(Lst(List(Num("1"), Num("2"))).targetCodeInfo)
-            //val parser = new Parser;
-            //val ast = parser.parse("[1,2,3,4];", null, 0);
+            val parser = new Parser;
+            val ast = parser.parse("""
+function test() {
+    [1,2,3,4];
+    function (x) {
+        if(2) {
+            3
+        }
+        else 4;
+    }
+}
+test(3);
+""", null, 0);
             //System.out.println((ast:Node).targetCodeInfo)
-            System.out.println(test1.as[Expression])
+            System.out.println(rhinoAstToInternal(ast).targetCode)
+            System.out.println(rhinoAstToInternal(ast).targetCodeInfo)
         }
 
         //implicit def asListNode[T <: Node](from:java.lang.Iterable[_ <: RhinoAST.AstNode]):List[T] = _mkScalaList(from) map (rhinoAstConverter[T](_))
-        
+        class SyntaxError(message:String) extends Exception {
+            override def toString = "Syntax Error : " + message;
+        }
         class RhinoASTHelper(from:RhinoAST.AstNode){
-            def optional[T <: Node : ClassTag]:Option[T] = rhinoAstToInternal(from).as[T]
-            def required[T <: Node : ClassTag]:T         = rhinoAstToInternal(from).as[T] match {
-                case Some(value) => value
-                case None        => throw new Exception()
-            }
+            def optional[T <: Node : ClassTag]:Option[T] = if(from != null) rhinoAstToInternal(from).as[T] else None
+            def required[T <: Node : ClassTag]:T         = if(from != null) {
+                rhinoAstToInternal(from).as[T] match {
+                    case Some(value) => value
+                    case None        => throw new SyntaxError("Type " + classTag[T] + " is expected, but we got a " + rhinoAstToInternal(from));
+                }
+            } else throw new SyntaxError("Required field not found")
+
             def list[T <: Node : ClassTag]:List[T] = {
-                import scala.collection.JavaConverters._
                 if(from == null) List[T]()
                 else _listImpl[T](from.asScala.toList)
             }
@@ -52,7 +69,7 @@ package com.github._38.radiation.ast {
                 case x :: xs => x match {
                     case x:RhinoAST.AstNode => rhinoAstToInternal(x).as[T] match {
                         case Some(n)        => n :: _listImpl(xs)
-                        case None           => _listImpl(xs)
+                        case None           => {System.out.println(classTag[T].toString + " drop problematic node " + x.toSource); throw new Exception; _listImpl(xs)}
                     }
                     case _                  => _listImpl(xs)
                 }
@@ -73,33 +90,49 @@ package com.github._38.radiation.ast {
                 case List() => List()   
             }
         }
-
+        def getLocals(scope: RhinoAST.Scope):Set[String] = 
+            if(scope.getSymbolTable != null) scope.getSymbolTable.keySet.asScala.toSet
+            else Set()
         implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
         implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 
         def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
-            case n:RhinoAST.Block                 => Block(n list)
+            case n:RhinoAST.ArrayLiteral          => Lst(n.getElements.list[Expression])
+            case n:RhinoAST.AstRoot               => Program(n.list[Statement]) 
+            case n:RhinoAST.Block                 => Block(n.list[Statement])
             case _:RhinoAST.BreakStatement        => Break
-            case n:RhinoAST.CatchClause           => Catch(n.getVarName required, n.getCatchCondition required, n.getBody required)
+            case n:RhinoAST.CatchClause           => Catch(n.getVarName.required[$], n.getCatchCondition.optional[Expression], n.getBody.required[Block])
+            case n:RhinoAST.ConditionalExpression => ?:(n.getTestExpression.required[Expression], 
+                                                        n.getTrueExpression.required[Expression], 
+                                                        n.getFalseExpression.required[Expression])
             case n:RhinoAST.ContinueStatement     => Continue
-            case n:RhinoAST.ArrayLiteral          => Lst(n.getElements list)
-            case n:RhinoAST.NumberLiteral         => Num(n toString)
-            /*case n:RhinoAST.DoLoop                => DoWhile(n.getBody.required, n.getCondition.required)
-            case n:RhinoAST.ElementGet            => Index(n.getTarget, n.getElement)
-            case n:RhinoAST.TryStatement          => Try(n.getTryBlock, n.getCatchClauses, n.getFinallyBlock)
-            case n:RhinoAST.ConditionalExpression => ?:(n.getTestExpression, n.getTrueExpression, n.getFalseExpression)
-            case n:RhinoAST.Name                  => $(n.getString)
+            case n:RhinoAST.DoLoop                => DoWhile(n.getBody.required[Statement], n.getCondition.required[Expression])
+            case n:RhinoAST.ElementGet            => Index(n.getTarget.required[Expression], n.getElement.required[Expression])
             case n:RhinoAST.EmptyExpression       => EmptyExpr
             case n:RhinoAST.EmptyStatement        => EmptyStat
-            case n:RhinoAST.ExpressionStatement   => ExpressionStat(n getExpression)
+            case n:RhinoAST.ExpressionStatement   => ExpressionStat(n.getExpression.required[Expression])
             case n:RhinoAST.ForInLoop             => {
                 (n isForEach) match {
-                   case (false)    => ForIn  (n getIterator, n getIteratedObject, n getBody) 
-                   case (true)     => ForEach(n getIterator, n getIteratedObject, n getBody)
+                   case (false)    => ForIn  (n.getIterator.required[LHS], n.getIteratedObject.required[Expression], n.getBody.required[Statement]) 
+                   case (true)     => ForEach(n.getIterator.required[LHS], n.getIteratedObject.required[Expression], n.getBody.required[Statement])
                 }
             }
-            case n:RhinoAST.FunctionCall          => Call(n getTarget, n getArguments)
-            case n:RhinoAST.InfixExpression       => BinOp(RhinoAST.AstNode operatorToString n.getType, n getLeft, n getRight)
+            case n:RhinoAST.FunctionCall          => Call(n.getTarget.required[Expression], n.getArguments.list[Expression])
+            case n:RhinoAST.FunctionNode          => {
+                (n getFunctionType) match {
+                    case RhinoAST.FunctionNode.FUNCTION_STATEMENT => FuncDef(n.getFunctionName.optional[$], 
+                                                                             n.getParams.list[$], 
+                                                                             n.getBody.required[Block],
+                                                                             getLocals(n))
+                    case _                                        => FuncExp(n.getFunctionName.optional[$], 
+                                                                             n.getParams.list[$], 
+                                                                             n.getBody.required[Block],
+                                                                             getLocals(n))
+                }
+            }
+            case n:RhinoAST.InfixExpression       => BinOp(RhinoAST.AstNode operatorToString n.getType, 
+                                                           n.getLeft.required[Expression], n.getRight.required[Expression])
+            case n:RhinoAST.IfStatement           => If(n.getCondition.required[Expression], n.getThenPart.required[Statement], n.getElsePart.optional[Statement])
             case n:RhinoAST.KeywordLiteral        => {
                 (n getType) match {
                     case RhinoToken.THIS  => This
@@ -109,11 +142,15 @@ package com.github._38.radiation.ast {
                 }
             }
             case n:RhinoAST.LabeledStatement      => {
-                val statement = rhinoAstConverter[Statement](n getStatement)
-                statement.labels = _mkScalaList(n.getLabels) map ((_:RhinoAST.Label) getName)
+                import scala.collection.JavaConverters._
+                val statement = n.getStatement.required[Statement]
+                statement.labels = n.getLabels.asScala.toList map ((_:RhinoAST.Label) getName)
                 statement
             }
-            case n:RhinoAST.AstRoot               => Program(n) */
+            case n:RhinoAST.Name                  => $(n.getString)
+            case n:RhinoAST.NumberLiteral         => Num(n getValue)
+            case n:RhinoAST.TryStatement          => Try(n.getTryBlock.required[Block], n.getCatchClauses.list[Catch], n.getFinallyBlock.optional[Block])
+            case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
         }
     }
     
@@ -124,16 +161,27 @@ package com.github._38.radiation.ast {
         override def targetCode:String = labeledPattern render
         override def targetCodeInfo:List[CodeInfo] = labeledPattern info
     }
+
+    /* Define Node Properties */
     trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
     trait Expression extends Node;
-    trait Scope extends Node;
+    trait Scope extends Node {
+        val localSymbols:Set[String];
+    }
     trait ControlFlow extends Statement;
     trait Loop extends ControlFlow;
     trait ForLoop extends Loop;
-    trait Function extends Scope;
     trait Constant extends Expression; /* For some literal constant */
+    abstract class Function(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Scope {
+        val localSymbols = locals
+        val pattern = "function " -- (name match {
+            case Some(name) => name
+            case None       => Empty()
+        }) -- "(" -- mkList(args, ",") -- ")" -- body
+    }
     
     case class Block(statements:List[Statement]) extends Statement {
+        /* TODO ECMAScript 6 Actually treat a block as a scope as well */
         val pattern = "{" -- mkList(statements) -- "}"
     }
     case object Break extends ControlFlow {
@@ -190,19 +238,13 @@ package com.github._38.radiation.ast {
     case class Call(target:Expression, args:List[Expression]) extends Expression {
         val pattern = target -- "(" -- mkList(args, ",") -- ")"
     }
-    case class FuncDef(name:$, args:List[$], body:Block) extends Statement with Function {
-        val pattern = "function " -- name -- mkList(args, ",") -- body
-    }
-    case class FuncExp(name:Option[$], args:List[$], body:Block) extends Expression with Function {
-        val pattern = "function " -- (name match {
-            case Some(name) => name
-            case None       => Empty()
-        }) -- mkList(args, ",") -- body
-    }
+    case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression;
+    case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement;
+
     case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
-        val pattern = "if(" -- cond -- ")" -- (elseCluase match {
+        val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
             case None => Empty() 
-            case Some(elseCluase) => "else" -- elseCluase
+            case Some(elseCluase) => " else " -- elseCluase
         })
     }
     case class BinOp(op:String, left:Expression, right:Expression) extends Expression {
@@ -226,7 +268,7 @@ package com.github._38.radiation.ast {
     case class Program(parts:List[Statement]) extends Node {
         val pattern = mkList(parts, "")
     }
-    case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression with Function{
+    case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression{
         val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
     }
    
