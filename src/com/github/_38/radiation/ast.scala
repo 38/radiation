@@ -39,16 +39,17 @@ package com.github._38.radiation.ast {
             val ast = parser.parse("""
 function test() {
     [1,2,3,4];
-    function (x) {
+    (function (x) {
         if(2) {
             3
         }
         else 4;
-    }
+    })();
 }
 test(3);
 """, null, 0);
             //System.out.println((ast:Node).targetCodeInfo)
+            System.out.println(rhinoAstToInternal(ast).pattern)
             System.out.println(rhinoAstToInternal(ast).targetCode)
             System.out.println(rhinoAstToInternal(ast).targetCodeInfo)
         }
@@ -96,12 +97,14 @@ test(3);
             }
         }
         def getLocals(scope: RhinoAST.Scope):Set[String] = 
-            if(scope.getSymbolTable != null) scope.getSymbolTable.keySet.asScala.toSet
-            else Set()
+            if(scope.getSymbolTable != null) scope.getSymbolTable.keySet.asScala.toSet else Set()
         implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
         implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 
         def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
+            case n:RhinoAST.ObjectProperty        => ->(n.getLeft.required[Expression], n.getRight.required[Expression])
+            case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getArguments.list[Expression])
+            
             case n:RhinoAST.ArrayLiteral          => Lst(n.getElements.list[Expression])
             case n:RhinoAST.AstRoot               => Program(n.list[Statement]) 
             case n:RhinoAST.Block                 => Block(n.list[Statement])
@@ -116,9 +119,9 @@ test(3);
             case n:RhinoAST.EmptyExpression       => EmptyExpr
             case n:RhinoAST.EmptyStatement        => EmptyStat
             case n:RhinoAST.ExpressionStatement   => ExpressionStat(n.getExpression.required[Expression])
-            case n:RhinoAST.ForLoop               => For(n.getInitializer.required[LSH], 
+            case n:RhinoAST.ForLoop               => For(n.getInitializer.required[LHS], 
                                                          n.getCondition.required[Expression], 
-                                                         n.getIncrement.required[Expression]
+                                                         n.getIncrement.required[Expression],
                                                          n.getBody.required[Statement])
             case n:RhinoAST.ForInLoop             => {
                 (n isForEach) match {
@@ -159,9 +162,8 @@ test(3);
             }
             case n:RhinoAST.Name                  => $(n.getString)
             case n:RhinoAST.NumberLiteral         => Num(n getValue)
-            case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getParams.list[Expression])
             case n:RhinoAST.ObjectLiteral         => Dict(n.getElements.list[Property])
-            case n:RhinoAST.ObjectProperty        => ->(n.getLeft.required[Expression], n.getRight.required[Expression])
+            case n:RhinoAST.ParenthesizedExpression => PE(n.getExpression.required[Expression])
             case n:RhinoAST.TryStatement          => Try(n.getTryBlock.required[Block], n.getCatchClauses.list[Catch], n.getFinallyBlock.optional[Block])
             case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
            
@@ -188,7 +190,7 @@ test(3);
     trait Constant extends Expression; /* For some literal constant */
     abstract class Function(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Scope {
         val localSymbols = locals
-        val pattern = (name match {
+        val shared = " " -- (name match {
             case Some(name) => name
             case None       => Empty()
         }) -- "(" -- mkList(args, ",") -- ")" -- body
@@ -255,10 +257,10 @@ test(3);
         val pattern = target -- "(" -- mkList(args, ",") -- ")"
     }
     case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
-        override val pattern = "function " -- (this:Function).pattern -- ";"
+        override val pattern = "function" -- shared
     }
     case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
-        override val pattern =  "function "-- (this:Function).pattern -- ";";
+        override val pattern =  "function"-- shared -- ";"
     }
     case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
         val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
@@ -298,6 +300,9 @@ test(3);
     }
     case class Dict(props:List[Property]) extends Expression {
         val pattern = "{" -- mkList(props, ",") -- "}"
+    }
+    case class PE(expr:Expression) extends Expression {
+        val pattern = "(" -- expr -- ")"
     }
 }
 
