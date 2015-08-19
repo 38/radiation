@@ -6,6 +6,11 @@ import com.github._38.radiation.CodeMaker.{Conversions, CodeInfo, CodeGeneratePa
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
+/* note: Let expression is not implemented */
+/* note: Arrow Function is not implemented */
+/* note: for of loop is not implemented */
+/* note: Block is not Scope */
+/* note: Getter and Setter are not implemented */
 package com.github._38.radiation.ast {
     import Conversions._
     /** Describe a Location in a source code */
@@ -111,6 +116,10 @@ test(3);
             case n:RhinoAST.EmptyExpression       => EmptyExpr
             case n:RhinoAST.EmptyStatement        => EmptyStat
             case n:RhinoAST.ExpressionStatement   => ExpressionStat(n.getExpression.required[Expression])
+            case n:RhinoAST.ForLoop               => For(n.getInitializer.required[LSH], 
+                                                         n.getCondition.required[Expression], 
+                                                         n.getIncrement.required[Expression]
+                                                         n.getBody.required[Statement])
             case n:RhinoAST.ForInLoop             => {
                 (n isForEach) match {
                    case (false)    => ForIn  (n.getIterator.required[LHS], n.getIteratedObject.required[Expression], n.getBody.required[Statement]) 
@@ -131,7 +140,8 @@ test(3);
                 }
             }
             case n:RhinoAST.InfixExpression       => BinOp(RhinoAST.AstNode operatorToString n.getType, 
-                                                           n.getLeft.required[Expression], n.getRight.required[Expression])
+                                                           n.getLeft.required[Expression], 
+                                                           n.getRight.required[Expression])
             case n:RhinoAST.IfStatement           => If(n.getCondition.required[Expression], n.getThenPart.required[Statement], n.getElsePart.optional[Statement])
             case n:RhinoAST.KeywordLiteral        => {
                 (n getType) match {
@@ -149,8 +159,12 @@ test(3);
             }
             case n:RhinoAST.Name                  => $(n.getString)
             case n:RhinoAST.NumberLiteral         => Num(n getValue)
+            case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getParams.list[Expression])
+            case n:RhinoAST.ObjectLiteral         => Dict(n.getElements.list[Property])
+            case n:RhinoAST.ObjectProperty        => ->(n.getLeft.required[Expression], n.getRight.required[Expression])
             case n:RhinoAST.TryStatement          => Try(n.getTryBlock.required[Block], n.getCatchClauses.list[Catch], n.getFinallyBlock.optional[Block])
             case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
+           
         }
     }
     
@@ -174,14 +188,16 @@ test(3);
     trait Constant extends Expression; /* For some literal constant */
     abstract class Function(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Scope {
         val localSymbols = locals
-        val pattern = "function " -- (name match {
+        val pattern = (name match {
             case Some(name) => name
             case None       => Empty()
         }) -- "(" -- mkList(args, ",") -- ")" -- body
     }
-    
+    trait Property extends Node;
+
+    /* Actual Node Types */
     case class Block(statements:List[Statement]) extends Statement {
-        /* TODO ECMAScript 6 Actually treat a block as a scope as well */
+        /* note: ECMAScript 6 Actually treat a block as a scope as well */
         val pattern = "{" -- mkList(statements) -- "}"
     }
     case object Break extends ControlFlow {
@@ -238,9 +254,12 @@ test(3);
     case class Call(target:Expression, args:List[Expression]) extends Expression {
         val pattern = target -- "(" -- mkList(args, ",") -- ")"
     }
-    case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression;
-    case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement;
-
+    case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
+        override val pattern = "function " -- (this:Function).pattern -- ";"
+    }
+    case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
+        override val pattern =  "function "-- (this:Function).pattern -- ";";
+    }
     case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
         val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
             case None => Empty() 
@@ -271,6 +290,14 @@ test(3);
     case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression{
         val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
     }
-   
+    case class New(target:Expression, args:List[Expression]) extends Expression{ /* initializer is not standard syntax seems not useful */
+        val pattern = "new " -- target -- " " -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
+    }
+    case class -> (left:Expression, right:Expression) extends Property {
+        val pattern = left -- ":" -- right
+    }
+    case class Dict(props:List[Property]) extends Expression {
+        val pattern = "{" -- mkList(props, ",") -- "}"
+    }
 }
 
