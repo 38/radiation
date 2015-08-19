@@ -33,9 +33,20 @@ package com.github._38.radiation.ast {
             case _ => None
         }
     }
+    object ASTParser {
+        class RhinoASTConversion(from:RhinoAST.AstNode) {
+            def AST = Node.rhinoAstToInternal(from)
+        }
+        implicit def toConversionObject(from: RhinoAST.AstNode) = new RhinoASTConversion(from)
+        def fromString(program:String):Node = 
+            (new Parser).parse(program, null, 0).AST
+        def main(arg:Array[String]) {
+            System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCode)
+            System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCodeInfo)
+        }
+    }
     object Node {
         import scala.collection.JavaConverters._
-        //implicit def asListNode[T <: Node](from:java.lang.Iterable[_ <: RhinoAST.AstNode]):List[T] = _mkScalaList(from) map (rhinoAstConverter[T](_))
         class SyntaxError(message:String) extends Exception {
             override def toString = "Syntax Error : " + message;
         }
