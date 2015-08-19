@@ -6,11 +6,14 @@ import com.github._38.radiation.CodeMaker.{Conversions, CodeInfo, CodeGeneratePa
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
-/* note: Let expression is not implemented */
-/* note: Arrow Function is not implemented */
-/* note: for of loop is not implemented */
-/* note: Block is not Scope */
-/* note: Getter and Setter are not implemented */
+/* note: Let expression is not implemented 
+         Arrow Function is not implemented
+         for of loop is not implemented
+         Block is not Scope 
+         Getter and Setter are not implemented 
+         Generator is not implemented
+         XML
+*/
 package com.github._38.radiation.ast {
     import Conversions._
     /** Describe a Location in a source code */
@@ -32,28 +35,6 @@ package com.github._38.radiation.ast {
     }
     object Node {
         import scala.collection.JavaConverters._
-        def main(s:Array[String]) {
-            val test1 = Lst(List(Num("1"), Num("2")));
-            //System.out.println(Lst(List(Num("1"), Num("2"))).targetCodeInfo)
-            val parser = new Parser;
-            val ast = parser.parse("""
-function test() {
-    [1,2,3,4];
-    (function (x) {
-        if(2) {
-            3
-        }
-        else 4;
-    })();
-}
-test(3);
-""", null, 0);
-            //System.out.println((ast:Node).targetCodeInfo)
-            System.out.println(rhinoAstToInternal(ast).pattern)
-            System.out.println(rhinoAstToInternal(ast).targetCode)
-            System.out.println(rhinoAstToInternal(ast).targetCodeInfo)
-        }
-
         //implicit def asListNode[T <: Node](from:java.lang.Iterable[_ <: RhinoAST.AstNode]):List[T] = _mkScalaList(from) map (rhinoAstConverter[T](_))
         class SyntaxError(message:String) extends Exception {
             override def toString = "Syntax Error : " + message;
@@ -98,12 +79,17 @@ test(3);
         }
         def getLocals(scope: RhinoAST.Scope):Set[String] = 
             if(scope.getSymbolTable != null) scope.getSymbolTable.keySet.asScala.toSet else Set()
+        def operatorString(opcode:Int) = 
+           (RhinoAST.AstNode operatorToString opcode) + 
+           (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID) " " else "")  
+          
         implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
         implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 
         def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
-            case n:RhinoAST.ObjectProperty        => ->(n.getLeft.required[Expression], n.getRight.required[Expression])
+            case n:RhinoAST.ObjectProperty        => :::(n.getLeft.required[Expression], n.getRight.required[Expression])
             case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getArguments.list[Expression])
+            case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[$])
             
             case n:RhinoAST.ArrayLiteral          => Lst(n.getElements.list[Expression])
             case n:RhinoAST.AstRoot               => Program(n.list[Statement]) 
@@ -119,14 +105,14 @@ test(3);
             case n:RhinoAST.EmptyExpression       => EmptyExpr
             case n:RhinoAST.EmptyStatement        => EmptyStat
             case n:RhinoAST.ExpressionStatement   => ExpressionStat(n.getExpression.required[Expression])
-            case n:RhinoAST.ForLoop               => For(n.getInitializer.required[LHS], 
+            case n:RhinoAST.ForLoop               => For(n.getInitializer.required[ForLoopInitializer], 
                                                          n.getCondition.required[Expression], 
                                                          n.getIncrement.required[Expression],
                                                          n.getBody.required[Statement])
             case n:RhinoAST.ForInLoop             => {
                 (n isForEach) match {
-                   case (false)    => ForIn  (n.getIterator.required[LHS], n.getIteratedObject.required[Expression], n.getBody.required[Statement]) 
-                   case (true)     => ForEach(n.getIterator.required[LHS], n.getIteratedObject.required[Expression], n.getBody.required[Statement])
+                   case (false)    => ForIn  (n.getIterator.required[ForLoopInitializer], n.getIteratedObject.required[Expression], n.getBody.required[Statement]) 
+                   case (true)     => ForEach(n.getIterator.required[ForLoopInitializer], n.getIteratedObject.required[Expression], n.getBody.required[Statement])
                 }
             }
             case n:RhinoAST.FunctionCall          => Call(n.getTarget.required[Expression], n.getArguments.list[Expression])
@@ -142,7 +128,7 @@ test(3);
                                                                              getLocals(n))
                 }
             }
-            case n:RhinoAST.InfixExpression       => BinOp(RhinoAST.AstNode operatorToString n.getType, 
+            case n:RhinoAST.InfixExpression       => BinOp(operatorString(n.getType), 
                                                            n.getLeft.required[Expression], 
                                                            n.getRight.required[Expression])
             case n:RhinoAST.IfStatement           => If(n.getCondition.required[Expression], n.getThenPart.required[Statement], n.getElsePart.optional[Statement])
@@ -164,9 +150,28 @@ test(3);
             case n:RhinoAST.NumberLiteral         => Num(n getValue)
             case n:RhinoAST.ObjectLiteral         => Dict(n.getElements.list[Property])
             case n:RhinoAST.ParenthesizedExpression => PE(n.getExpression.required[Expression])
+            case n:RhinoAST.RegExpLiteral         => Reg(n.getValue, (if(n.getFlags == null) None else Some(n.getFlags)))
+            case n:RhinoAST.ReturnStatement       => Return(n.getReturnValue.optional[Expression])
+            case n:RhinoAST.StringLiteral         => Str(n.getValue)
+            case n:RhinoAST.SwitchCase            => Case(n.getExpression.optional[Expression], n.getStatements.list[Statement])
+            case n:RhinoAST.SwitchStatement       => Switch(n.getExpression.required[Expression], n.getCases.list[Case])
+            /* As Meta-Data Node, Symbol Node is ignored */
+            case n:RhinoAST.ThrowStatement        => Throw(n.getExpression.required[Expression])
             case n:RhinoAST.TryStatement          => Try(n.getTryBlock.required[Block], n.getCatchClauses.list[Catch], n.getFinallyBlock.optional[Block])
+            case n:RhinoAST.UnaryExpression       => 
+                if(n.isPostfix) _$(operatorString(n.getType), n.getOperand.required[Expression])
+                else            $_(operatorString(n.getType), n.getOperand.required[Expression])
+            case n:RhinoAST.VariableInitializer   => VarDecl(n.getTarget.required[$], n.getInitializer.optional[Expression])
+            case n:RhinoAST.VariableDeclaration   => { 
+                val how = (n isVar, n isLet, n isConst) match {
+                    case (true, false, false) => "var"
+                    case (false, true, false) => "let"
+                    case (false, false, true) => "const"
+                    case _                    => "ooops"
+                }
+                if(n isStatement) DefineStmt(how, n.getVariables.list[VarDecl]) else DefineInit(how, n.getVariables.list[VarDecl])
+            }
             case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
-           
         }
     }
     
@@ -179,8 +184,9 @@ test(3);
     }
 
     /* Define Node Properties */
+    trait ForLoopInitializer extends Node;
     trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
-    trait Expression extends Node;
+    trait Expression extends Node with ForLoopInitializer;
     trait Scope extends Node {
         val localSymbols:Set[String];
     }
@@ -206,7 +212,7 @@ test(3);
         val pattern = "break;":CodeGeneratePattern
     }
     case class Catch(variable:$, cond:Option[Expression], body:Block) extends Node {
-        val pattern = "try(" -- variable -- (cond match {
+        val pattern = "catch(" -- variable -- (cond match {
             case Some(cond) => " if " -- cond
             case None => Empty()
         }) -- ")" -- body
@@ -244,13 +250,13 @@ test(3);
     case class ExpressionStat(expression:Expression) extends Statement {
         val pattern = expression -- ";"
     }
-    case class ForIn(iterator:LHS, iterationObject:Expression, body:Statement) extends ForLoop {
+    case class ForIn(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for(" -- iterator -- " in " -- iterationObject -- ")" -- body
     }
-    case class ForEach(iterator:LHS, iterationObject:Expression, body:Statement) extends ForLoop {
+    case class ForEach(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for each(" -- iterator -- " in " -- iterationObject -- ")" -- body
     }
-    case class For(initial:LHS, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
+    case class For(initial:ForLoopInitializer, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
         val pattern = "for(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
     }
     case class Call(target:Expression, args:List[Expression]) extends Expression {
@@ -280,7 +286,7 @@ test(3);
     case object Null extends Constant {
         val pattern = "null":CodeGeneratePattern
     }
-    case object This extends Constant {
+    case object This extends Expression {   /* This is the only exception, because the value of this can change */
         val pattern = "this":CodeGeneratePattern
     }
     case object Debugger extends Statement {
@@ -295,7 +301,7 @@ test(3);
     case class New(target:Expression, args:List[Expression]) extends Expression{ /* initializer is not standard syntax seems not useful */
         val pattern = "new " -- target -- " " -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
     }
-    case class -> (left:Expression, right:Expression) extends Property {
+    case class :::(left:Expression, right:Expression) extends Property {
         val pattern = left -- ":" -- right
     }
     case class Dict(props:List[Property]) extends Expression {
@@ -303,6 +309,54 @@ test(3);
     }
     case class PE(expr:Expression) extends Expression {
         val pattern = "(" -- expr -- ")"
+    }
+    case class ->(left:Expression, right:$) extends Expression{
+        val pattern = left -- "." -- right
+    }
+    case class Reg(expr:String, flg:Option[String]) extends Constant {
+        val pattern = Empty() -- "/" -- expr -- "/" -- (flg match {
+            case Some(flg) => flg
+            case None      => Empty()
+        })
+    }
+    case class Str(value:String) extends Constant {
+        val pattern = Empty() -- "\"" -- value -- "\""
+    }
+    case class Return(what:Option[Expression]) extends ControlFlow{
+        val pattern = "return" -- (what match {
+            case Some(what)  =>  " " -- what 
+            case None        =>  Empty()
+        }) -- ";"
+    }
+    case class Case(test:Option[Expression], statements:List[Statement]) extends Node {
+        val pattern = test match {
+            case Some(test)  => "case " -- test -- ":" -- mkList(statements, "")
+            case None        => "default:" -- mkList(statements, "")
+        }
+    }
+    case class Switch(test:Expression, cases:List[Case]) extends ControlFlow {
+        val pattern = "switch(" -- test -- "){" -- mkList(cases, " ") -- "}"
+    }
+    case class Throw(expr:Expression) extends ControlFlow {
+        val pattern = "throw " -- expr -- ";"
+    }
+    case class $_(opcode:String, operand:Expression) extends Expression {
+        val pattern = opcode -- operand
+    }
+    case class _$(opcode:String, operand:Expression) extends Expression {
+        val pattern = operand -- opcode
+    }
+    case class VarDecl(name:$, initval:Option[Expression]) extends Node {
+        val pattern = name -- (initval match {
+            case Some(value) => "=" -- value
+            case None        => Empty()
+        })
+    }
+    case class DefineStmt(how:String, what:List[VarDecl]) extends Statement {
+        val pattern = Empty() -- how -- " " -- mkList(what, ",") -- ";"
+    }
+    case class DefineInit(how:String, what:List[VarDecl]) extends ForLoopInitializer {
+        val pattern = Empty() -- how -- " " -- mkList(what, ",")
     }
 }
 
