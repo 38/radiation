@@ -40,10 +40,10 @@ package com.github._38.radiation.ast {
         implicit def toConversionObject(from: RhinoAST.AstNode) = new RhinoASTConversion(from)
         def fromString(program:String):Node = 
             (new Parser).parse(program, null, 0).AST
-        def main(arg:Array[String]) {
+        /*def main(arg:Array[String]) {
             System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCode)
             System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCodeInfo)
-        }
+        }*/
     }
     object Node {
         import scala.collection.JavaConverters._
