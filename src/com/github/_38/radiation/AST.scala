@@ -2,7 +2,7 @@ import scala.language.postfixOps
 import scala.language.implicitConversions
 
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken}
-import com.github._38.radiation.CodeMaker.{Conversions, CodeInfo, CodeGeneratePattern, Empty, Compound}
+import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
@@ -17,15 +17,21 @@ import scala.reflect.{ClassTag, classTag}
 package com.github._38.radiation.ast {
     import Conversions._
     /** Describe a Location in a source code */
-    case class SourceLocation(val line:Int, val column:Int);
+    case class Location(val line:Int, val column:Int);
     /** The base class for all AST Nodes */
     abstract class Node {
-        val pattern:CodeGeneratePattern
-        var location:Option[SourceLocation] = None
+        val pattern:Pattern
+        val cargs:Seq[AnyRef]    /* This is used because we need to use refelection to create new object */
+        var location:Option[Location] = None
         lazy val length:Int = pattern length 
+        def change(idx:Int, what:AnyRef):Node = {
+            val args = cargs.patch(idx, Seq(what), 1).toArray[AnyRef]
+            val cons = this.getClass.getConstructors()(0)
+            cons.newInstance(args:_*).asInstanceOf[Node]
+        }
         def targetCode:String = pattern render
-        def targetCodeInfo:List[CodeInfo] = pattern info
-        def apply(loc:SourceLocation) {
+        def targetCodeInfo:List[Info] = pattern info
+        def apply(loc:Location) {
             location = Some(loc)
         }
         def as[T <: Node: ClassTag]:Option[T] = this match {
@@ -41,8 +47,8 @@ package com.github._38.radiation.ast {
         def fromString(program:String):Node = 
             (new Parser).parse(program, null, 0).AST
         /*def main(arg:Array[String]) {
-            System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCode)
-            System.out.println(fromString("function a(x,y,z) { return x + y + z;}").targetCodeInfo)
+            val ast = fromString("function a(x,y,z) { return x + y + z;}");
+            System.out.println(ast.change(0, List[Statement]()))
         }*/
     }
     object Node {
@@ -67,7 +73,7 @@ package com.github._38.radiation.ast {
                 case x :: xs => x match {
                     case x:RhinoAST.AstNode => rhinoAstToInternal(x).as[T] match {
                         case Some(n)        => n :: _listImpl(xs)
-                        case None           => {System.out.println(classTag[T].toString + " drop problematic node " + x.toSource); throw new Exception; _listImpl(xs)}
+                        case None           => _listImpl(xs)
                     }
                     case _                  => _listImpl(xs)
                 }
@@ -191,7 +197,7 @@ package com.github._38.radiation.ast {
         def labeledPattern = if(labels.length > 0) ((new Compound(List())) /: labels)((p,s) => p -- s -- ":") -- pattern else pattern
         override lazy val length:Int = labeledPattern length 
         override def targetCode:String = labeledPattern render
-        override def targetCodeInfo:List[CodeInfo] = labeledPattern info
+        override def targetCodeInfo:List[Info] = labeledPattern info
     }
 
     /* Define Node Properties */
@@ -218,156 +224,200 @@ package com.github._38.radiation.ast {
     case class Block(statements:List[Statement]) extends Statement {
         /* note: ECMAScript 6 Actually treat a block as a scope as well */
         val pattern = "{" -- mkList(statements) -- "}"
+        val cargs   = Seq(statements)
     }
     case object Break extends ControlFlow {
-        val pattern = "break;":CodeGeneratePattern
+        val pattern = "break;":Pattern
+        val cargs   = Seq()
     }
     case class Catch(variable:$, cond:Option[Expression], body:Block) extends Node {
         val pattern = "catch(" -- variable -- (cond match {
             case Some(cond) => " if " -- cond
             case None => Empty()
         }) -- ")" -- body
+        val cargs   = Seq(variable, cond, body)
     }
     case object Continue extends ControlFlow {
-        val pattern = "continue;":CodeGeneratePattern;
+        val pattern = "continue;":Pattern;
+        val cargs   = Seq()
     }
     case class DoWhile(body:Statement, cond:Expression) extends Loop {
         val pattern = "do " -- body -- "while(" -- cond -- ");"
+        val cargs   = Seq(body, cond)
     }
     case class Index(target:Expression, key:Expression) extends Expression  with LHS{
         val pattern = target -- "[" -- key -- "]"
+        val cargs   = Seq(target, key)
     }
     case class Lst(values:List[Expression]) extends Expression {
         val pattern = "[" -- mkList(values, ",") -- "]"
+        val cargs   = Seq(values)
     }
     case class Num(value:String) extends Constant {
-        val pattern = value:CodeGeneratePattern;
+        val pattern = value:Pattern;
+        val cargs   = Seq(value)
     }
     case class Try(tryBlock:Block, catchBlocks:List[Catch], finallyBlock:Option[Block]) extends Statement {
         val pattern = "try" -- tryBlock -- mkList(catchBlocks) -- (finallyBlock match {
             case Some(finallyBlock) => "finally " -- finallyBlock
             case None               => Empty()
           })
+        val cargs   = Seq(tryBlock, catchBlocks, finallyBlock)
     }
     case class $(text:String) extends Expression with LHS {
-        val pattern = text:CodeGeneratePattern
+        val pattern = text:Pattern
+        val cargs   = Seq(text)
     }
     case object EmptyExpr extends Expression {
         val pattern = Empty()
+        val cargs   = Seq()
     }
     case object EmptyStat extends Statement {
-        val pattern = ";":CodeGeneratePattern
+        val pattern = ";":Pattern
+        val cargs   = Seq()
     }
     case class ExpressionStat(expression:Expression) extends Statement {
         val pattern = expression -- ";"
+        val cargs   = Seq(expression)
     }
     case class ForIn(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for(" -- iterator -- " in " -- iterationObject -- ")" -- body
+        val cargs   = Seq(iterator, iterationObject, body)
     }
     case class ForEach(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
         val pattern = "for each(" -- iterator -- " in " -- iterationObject -- ")" -- body
+        val cargs   = Seq(iterator, iterationObject, body)
     }
     case class For(initial:ForLoopInitializer, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
         val pattern = "for(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
+        val cargs   = Seq(initial, cond, inc, body)
     }
     case class Call(target:Expression, args:List[Expression]) extends Expression {
         val pattern = target -- "(" -- mkList(args, ",") -- ")"
+        val cargs   = Seq(target, args)
     }
     case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
         override val pattern = "function" -- shared
+        val cargs   = Seq(name, args, body, locals)
     }
     case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
         override val pattern =  "function"-- shared -- ";"
+        val cargs   = Seq(name, args, body, locals)
     }
     case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
         val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
             case None => Empty() 
             case Some(elseCluase) => " else " -- elseCluase
         })
+        val cargs   = Seq(cond, thenClause, elseCluase)
     }
     case class BinOp(op:String, left:Expression, right:Expression) extends Expression {
-        val pattern = left -- op -- right;
+        val pattern = left -- op -- right
+        val cargs   = Seq(op, left, right)
     }
     case object True extends Constant {
-        val pattern = "true":CodeGeneratePattern
+        val pattern = "true":Pattern
+        val cargs   = Seq()
     }
     case object False extends Constant {
-        val pattern = "false":CodeGeneratePattern
+        val pattern = "false":Pattern
+        val cargs   = Seq()
     }
     case object Null extends Constant {
-        val pattern = "null":CodeGeneratePattern
+        val pattern = "null":Pattern
+        val cargs   = Seq()
     }
     case object This extends Expression {   /* This is the only exception, because the value of this can change */
-        val pattern = "this":CodeGeneratePattern
+        val pattern = "this":Pattern
+        val cargs   = Seq()
     }
     case object Debugger extends Statement {
-        val pattern = "debugger;":CodeGeneratePattern
+        val pattern = "debugger;":Pattern
+        val cargs   = Seq()
     }
     case class Program(parts:List[Statement]) extends Node {
         val pattern = mkList(parts, "")
+        val cargs   = Seq(parts)
     }
     case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression{
         val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
+        val cargs   = Seq(cond, trueExpr, falseExpr)
     }
     case class New(target:Expression, args:List[Expression]) extends Expression{ /* initializer is not standard syntax seems not useful */
         val pattern = "new " -- target -- " " -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
+        val cargs   = Seq(target, args)
     }
     case class :::(left:Expression, right:Expression) extends Property {
         val pattern = left -- ":" -- right
+        val cargs   = Seq(left, right)
     }
     case class Dict(props:List[Property]) extends Expression {
         val pattern = "{" -- mkList(props, ",") -- "}"
+        val cargs   = Seq(props)
     }
     case class PE(expr:Expression) extends Expression {
         val pattern = "(" -- expr -- ")"
+        val cargs   = Seq(expr)
     }
     case class ->(left:Expression, right:$) extends Expression{
         val pattern = left -- "." -- right
+        val cargs   = Seq(left, right)
     }
     case class Reg(expr:String, flg:Option[String]) extends Constant {
         val pattern = Empty() -- "/" -- expr -- "/" -- (flg match {
             case Some(flg) => flg
             case None      => Empty()
         })
+        val cargs   = Seq(expr, flg)
     }
     case class Str(value:String) extends Constant {
         val pattern = Empty() -- "\"" -- value -- "\""
+        val cargs   = Seq(value)
     }
     case class Return(what:Option[Expression]) extends ControlFlow{
         val pattern = "return" -- (what match {
             case Some(what)  =>  " " -- what 
             case None        =>  Empty()
         }) -- ";"
+        val cargs   = Seq(what)
     }
     case class Case(test:Option[Expression], statements:List[Statement]) extends Node {
         val pattern = test match {
             case Some(test)  => "case " -- test -- ":" -- mkList(statements, "")
             case None        => "default:" -- mkList(statements, "")
         }
+        val cargs   = Seq(test, statements)
     }
     case class Switch(test:Expression, cases:List[Case]) extends ControlFlow {
         val pattern = "switch(" -- test -- "){" -- mkList(cases, " ") -- "}"
+        val cargs   = Seq(test, cases)
     }
     case class Throw(expr:Expression) extends ControlFlow {
         val pattern = "throw " -- expr -- ";"
+        val cargs   = Seq(expr)
     }
     case class $_(opcode:String, operand:Expression) extends Expression {
         val pattern = opcode -- operand
+        val cargs   = Seq(opcode, operand)
     }
     case class _$(opcode:String, operand:Expression) extends Expression {
         val pattern = operand -- opcode
+        val cargs   = Seq(opcode, operand)
     }
     case class VarDecl(name:$, initval:Option[Expression]) extends Node {
         val pattern = name -- (initval match {
             case Some(value) => "=" -- value
             case None        => Empty()
         })
+        val cargs   = Seq(name, initval)
     }
     case class DefineStmt(how:String, what:List[VarDecl]) extends Statement {
         val pattern = Empty() -- how -- " " -- mkList(what, ",") -- ";"
+        val cargs   = Seq(how, what)
     }
     case class DefineInit(how:String, what:List[VarDecl]) extends ForLoopInitializer {
         val pattern = Empty() -- how -- " " -- mkList(what, ",")
+        val cargs   = Seq(how, what)
     }
 }
 
