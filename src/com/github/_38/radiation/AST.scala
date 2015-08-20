@@ -24,10 +24,47 @@ package com.github._38.radiation.ast {
         val cargs:Seq[AnyRef]    /* This is used because we need to use refelection to create new object */
         var location:Option[Location] = None
         lazy val length:Int = pattern length 
-        def change(idx:Int, what:AnyRef):Node = {
-            val args = cargs.patch(idx, Seq(what), 1).toArray[AnyRef]
+        /* change the child of the node */
+        def change(what:Seq[AnyRef]):Node = {
+            def buildArgs(prev:Seq[AnyRef], curr:Seq[AnyRef]):List[AnyRef] = (prev, curr) match {
+                case (p :: ps, c :: cs) => {
+                    p match {
+                        case p:Option[_] => Some(c) :: buildArgs(ps, cs)
+                        case _        => c :: buildArgs(ps, cs)
+                    }
+                }
+                case (List(), List())   => List()
+                case _                  => throw new Exception("Invalid number of args");  /* TODO define a new exception type */
+            }
+            val args = buildArgs(cargs, what).toArray[AnyRef]
             val cons = this.getClass.getConstructors()(0)
             cons.newInstance(args:_*).asInstanceOf[Node]
+        }
+        /* traverse the AST */
+        def traverse(transform:Node => Node):Node = {
+            val processed = transform(this)
+            if(processed ne this) processed   /* The node has been touched, do not go deeper */
+            else 
+            {
+                def processList(list:List[Node]):List[Node] = list match {
+                    case x :: xs => {
+                        val newNode = x traverse transform
+                        val next = processList(xs)
+                        if((newNode eq x) && (next eq xs)) list
+                        else newNode :: next
+                    }
+                    case List()    => List()
+                }
+                val childRes = cargs map ((x:AnyRef) => (x match {
+                    case list:List[Node] => processList(list)
+                    case Some(node:Node) => node traverse transform
+                    case node:Node       => node traverse transform
+                    case whaterver       => whaterver
+                }));
+                val changed = (false /: (childRes zip cargs))((x,y) => (x || (y._1 ne y._2)))
+                if(changed) this.change(childRes)
+                else this
+            }
         }
         def targetCode:String = pattern render
         def targetCodeInfo:List[Info] = pattern info
@@ -106,13 +143,13 @@ package com.github._38.radiation.ast {
         def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
             case n:RhinoAST.ObjectProperty        => :::(n.getLeft.required[Expression], n.getRight.required[Expression])
             case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getArguments.list[Expression])
-            case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[$])
+            case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[Id])
             
             case n:RhinoAST.ArrayLiteral          => Lst(n.getElements.list[Expression])
             case n:RhinoAST.AstRoot               => Program(n.list[Statement]) 
             case n:RhinoAST.Block                 => Block(n.list[Statement])
             case _:RhinoAST.BreakStatement        => Break
-            case n:RhinoAST.CatchClause           => Catch(n.getVarName.required[$], n.getCatchCondition.optional[Expression], n.getBody.required[Block])
+            case n:RhinoAST.CatchClause           => Catch(n.getVarName.required[Id], n.getCatchCondition.optional[Expression], n.getBody.required[Block])
             case n:RhinoAST.ConditionalExpression => ?:(n.getTestExpression.required[Expression], 
                                                         n.getTrueExpression.required[Expression], 
                                                         n.getFalseExpression.required[Expression])
@@ -135,12 +172,12 @@ package com.github._38.radiation.ast {
             case n:RhinoAST.FunctionCall          => Call(n.getTarget.required[Expression], n.getArguments.list[Expression])
             case n:RhinoAST.FunctionNode          => {
                 (n getFunctionType) match {
-                    case RhinoAST.FunctionNode.FUNCTION_STATEMENT => FuncDef(n.getFunctionName.optional[$], 
-                                                                             n.getParams.list[$], 
+                    case RhinoAST.FunctionNode.FUNCTION_STATEMENT => FuncDef(n.getFunctionName.optional[Id], 
+                                                                             n.getParams.list[Id], 
                                                                              n.getBody.required[Block],
                                                                              getLocals(n))
-                    case _                                        => FuncExp(n.getFunctionName.optional[$], 
-                                                                             n.getParams.list[$], 
+                    case _                                        => FuncExp(n.getFunctionName.optional[Id], 
+                                                                             n.getParams.list[Id], 
                                                                              n.getBody.required[Block],
                                                                              getLocals(n))
                 }
@@ -163,7 +200,7 @@ package com.github._38.radiation.ast {
                 statement.labels = n.getLabels.asScala.toList map ((_:RhinoAST.Label) getName)
                 statement
             }
-            case n:RhinoAST.Name                  => $(n.getString)
+            case n:RhinoAST.Name                  => Id(n.getString)
             case n:RhinoAST.NumberLiteral         => Num(n getValue)
             case n:RhinoAST.ObjectLiteral         => Dict(n.getElements.list[Property])
             case n:RhinoAST.ParenthesizedExpression => PE(n.getExpression.required[Expression])
@@ -178,7 +215,7 @@ package com.github._38.radiation.ast {
             case n:RhinoAST.UnaryExpression       => 
                 if(n.isPostfix) _$(operatorString(n.getType), n.getOperand.required[Expression])
                 else            $_(operatorString(n.getType), n.getOperand.required[Expression])
-            case n:RhinoAST.VariableInitializer   => VarDecl(n.getTarget.required[$], n.getInitializer.optional[Expression])
+            case n:RhinoAST.VariableInitializer   => VarDecl(n.getTarget.required[Id], n.getInitializer.optional[Expression])
             case n:RhinoAST.VariableDeclaration   => { 
                 val how = (n isVar, n isLet, n isConst) match {
                     case (true, false, false) => "var"
@@ -211,7 +248,7 @@ package com.github._38.radiation.ast {
     trait Loop extends ControlFlow;
     trait ForLoop extends Loop;
     trait Constant extends Expression; /* For some literal constant */
-    abstract class Function(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Scope {
+    abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Scope {
         val localSymbols = locals
         val shared = " " -- (name match {
             case Some(name) => name
@@ -230,7 +267,7 @@ package com.github._38.radiation.ast {
         val pattern = "break;":Pattern
         val cargs   = Seq()
     }
-    case class Catch(variable:$, cond:Option[Expression], body:Block) extends Node {
+    case class Catch(variable:Id, cond:Option[Expression], body:Block) extends Node {
         val pattern = "catch(" -- variable -- (cond match {
             case Some(cond) => " if " -- cond
             case None => Empty()
@@ -264,7 +301,7 @@ package com.github._38.radiation.ast {
           })
         val cargs   = Seq(tryBlock, catchBlocks, finallyBlock)
     }
-    case class $(text:String) extends Expression with LHS {
+    case class Id(text:String) extends Expression with LHS {
         val pattern = text:Pattern
         val cargs   = Seq(text)
     }
@@ -296,11 +333,11 @@ package com.github._38.radiation.ast {
         val pattern = target -- "(" -- mkList(args, ",") -- ")"
         val cargs   = Seq(target, args)
     }
-    case class FuncExp(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
+    case class FuncExp(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
         override val pattern = "function" -- shared
         val cargs   = Seq(name, args, body, locals)
     }
-    case class FuncDef(name:Option[$], args:List[$], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
+    case class FuncDef(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
         override val pattern =  "function"-- shared -- ";"
         val cargs   = Seq(name, args, body, locals)
     }
@@ -359,7 +396,7 @@ package com.github._38.radiation.ast {
         val pattern = "(" -- expr -- ")"
         val cargs   = Seq(expr)
     }
-    case class ->(left:Expression, right:$) extends Expression{
+    case class ->(left:Expression, right:Id) extends Expression{
         val pattern = left -- "." -- right
         val cargs   = Seq(left, right)
     }
@@ -404,7 +441,7 @@ package com.github._38.radiation.ast {
         val pattern = operand -- opcode
         val cargs   = Seq(opcode, operand)
     }
-    case class VarDecl(name:$, initval:Option[Expression]) extends Node {
+    case class VarDecl(name:Id, initval:Option[Expression]) extends Node {
         val pattern = name -- (initval match {
             case Some(value) => "=" -- value
             case None        => Empty()
