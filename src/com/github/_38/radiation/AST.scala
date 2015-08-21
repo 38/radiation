@@ -48,10 +48,19 @@ package com.github._38.radiation.ast {
             {
                 def processList(list:List[Node]):List[Node] = list match {
                     case x :: xs => {
-                        val newNode = x traverse transform
-                        val next = processList(xs)
-                        if((newNode eq x) && (next eq xs)) list
-                        else newNode :: next
+                        val traverseRes = x traverse transform
+                        val next      = processList(xs)
+                        traverseRes match {
+                            case Bundle(what) => what match {
+                                case List(identity) if identity eq x => list
+                                case _                               => what ++ next
+                            }
+                            case newNode:Node => {
+                                val next = processList(xs)
+                                if((newNode eq x) && (next eq xs)) list
+                                else newNode :: next
+                            }
+                        }
                     }
                     case List()    => List()
                 }
@@ -473,6 +482,7 @@ package com.github._38.radiation.ast {
     case class Begin(what:Node) extends VirtualNode;   /* Indicates we are about to processing the Node */
     case class End(what:Node) extends VirtualNode;     /* Indicates we are almost done with the node */
     case class Patch(begin:Int, what:List[Node], howmany:Int) extends VirtualNode;  /* Callback needs to patch the list */
+    case class Bundle(what:List[Node]) extends VirtualNode;
     case object Nop extends VirtualNode;   /* Do Nothing */
 }
 
