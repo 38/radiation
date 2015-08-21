@@ -22,6 +22,7 @@ package com.github._38.radiation.template {
 		val _isRef = "\\$\\$[0-9]+\\$\\$".r
         def _renderOne(template:Node, args:Node*):Node = {
             def _renderTrans(node:Node):Node = node match {
+                case node:VirtualNode => Nop
                 case ExpressionStat(Id(arg_ref)) if _isRef.pattern.matcher(arg_ref).matches => {   /* For the case $$1$$; */
                     val ref = arg_ref.replace("$","").toInt
                     if(args.length <= ref) throw new TemplateRenderingException("Invalid argument reference " + ref)
@@ -42,7 +43,7 @@ package com.github._38.radiation.template {
 		import ast.ASTParser._
         import ast.{Node, Program}
         implicit def stringToTemplate(s:String) = new Template(s)
-        def main(args:Array[String]) {
+        /*def main(args:Array[String]) {
             val targetAST = "true".js
 
             val newAST = """function test() 
@@ -50,6 +51,6 @@ package com.github._38.radiation.template {
                                 $$0$$;
                             }""" render targetAST(0)
             System.out.println(newAST(0).targetCode)
-        }
+        }*/
     }
 }

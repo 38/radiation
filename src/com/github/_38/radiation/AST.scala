@@ -56,7 +56,17 @@ package com.github._38.radiation.ast {
                     case List()    => List()
                 }
                 val childRes = cargs map ((x:AnyRef) => (x match {
-                    case list:List[Node] => processList(list)
+                    case list:List[Node] => {
+                        val toProcess = transform(Begin(this)) match {
+                            case Patch(begin, what, howmany) => list.patch(begin, what, howmany)
+                            case _                           => list
+                        };
+                        val processed = processList(list);
+                        transform(End(this)) match {
+                            case Patch(begin, what, howmany) => processed.patch(begin, what, howmany)
+                            case _                           => processed
+                        }
+                    }
                     case Some(node:Node) => node traverse transform
                     case node:Node       => node traverse transform
                     case whaterver       => whaterver
@@ -248,6 +258,10 @@ package com.github._38.radiation.ast {
     trait Loop extends ControlFlow;
     trait ForLoop extends Loop;
     trait Constant extends Expression; /* For some literal constant */
+    trait VirtualNode extends Node {   /* Do not use this in the actual tree */
+        val pattern = "Oops, you shouldn't see this":Pattern
+        val cargs = Seq()
+    }
     abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Scope {
         val localSymbols = locals
         val shared = " " -- (name match {
@@ -456,5 +470,9 @@ package com.github._38.radiation.ast {
         val pattern = Empty() -- how -- " " -- mkList(what, ",")
         val cargs   = Seq(how, what)
     }
+    case class Begin(what:Node) extends VirtualNode;   /* Indicates we are about to processing the Node */
+    case class End(what:Node) extends VirtualNode;     /* Indicates we are almost done with the node */
+    case class Patch(begin:Int, what:List[Node], howmany:Int) extends VirtualNode;  /* Callback needs to patch the list */
+    case object Nop extends VirtualNode;   /* Do Nothing */
 }
 
