@@ -1,10 +1,10 @@
-# The reason why I write such a script is I think the best way for the indentation is 
-# mixing spaces with tabs. A lot of people suggest that we should totally use space 
+# The reason why there's such  script is the best way for the indentation is 
+# mixing spaces with tabs. A lot of people suggest that we should totally use space anyway 
 # However, this increase the size of the source code and makes other uncomfortable 
 # with the "hard indentation". When I have a smaller screen, I need the TABSTOP become
 # smaller, however the space approach fail to do this.
-# So I think the good way for indentation is use tabs for indentation, use space for 
-# alignment. 
+# So the good way for indentation is use tabs for indentation, use space for alignment. 
+# In this way, the code is perfectly indented, and people are free to change the TABSTOP
 # This tool is written for the reason above
 import sys
 import re
