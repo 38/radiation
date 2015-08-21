@@ -264,12 +264,12 @@ package com.github._38.radiation.ast {
 	trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
 	trait Expression extends Node with ForLoopInitializer;
 	trait Scope extends Node ;
-    trait LocalScope extends Scope {
-        val localSymbols:Set[String]
-    }
-    trait GlobalScope extends Scope {
-        val globalSymbols:Set[String]
-    }
+	trait LocalScope extends Scope {
+		val localSymbols:Set[String]
+	}
+	trait GlobalScope extends Scope {
+		val globalSymbols:Set[String]
+	}
 	trait ControlFlow extends Statement;
 	trait Loop extends ControlFlow;
 	trait ForLoop extends Loop;
@@ -403,7 +403,7 @@ package com.github._38.radiation.ast {
 		val cargs   = Seq()
 	}
 	case class Program(parts:List[Statement], globals: Set[String]) extends GlobalScope {
-        val globalSymbols = globals
+		val globalSymbols = globals
 		val pattern = mkList(parts, "")
 		val cargs   = Seq(parts, globals)
 	}
