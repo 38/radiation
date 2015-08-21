@@ -5,15 +5,15 @@ package com.github._38.radiation.modules.closure {
 	object ClosureExposure {
 		import Template._
 		import ast.{Node, End, Patch, Program, Nop, Bundle, FuncDef, Num, Id}
-        val funcDef = """$$0$$;  /* The function declearation */
+		val funcDef = """$$0$$;  /* The function declearation */
                          $$1$$ = _$_$($$2$$,  /* The index */
                                       $$1$$,  /* Put the name here */
                                       $$3$$   /* The closure object */
                          );""".t
-        val funcExp = """_$_$($$0$$ /* The index */,
+		val funcExp = """_$_$($$0$$ /* The index */,
                              $$1$$ /* The function */ ,
                              $$2$$ /* the Closure object */)""".e
-        val header  = """try
+		val header  = """try
                         {
                            __$_closure_dict__;
                         }
@@ -33,10 +33,14 @@ package com.github._38.radiation.modules.closure {
                            __$_closure_dict__[id].push(func);
                            return func;
                         }""".js
-		
+		var functionIdx = 0
 		def visitor(node:Node):Node = node match {
-			case End(Program(_)) => Patch(0, header, 0)   /* Add the header */
-			case FuncDef(Some(name), args, body, locals) => Bundle(funcDef.render(node, name, Num("0"), Num("0")))  /* Only a test */
+			case End(Program(_, _)) => Patch(0, header, 0)   /* Add the header */
+			case FuncDef(Some(name), args, body, locals) => {
+				functionIdx += 1
+                /* TODO figure out the correct clcosure */
+				Bundle(funcDef.render(node, name, Num(functionIdx.toString), Num("0")))  /* Only a test */
+			}
 			case _ => node
 		}
 		

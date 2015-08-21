@@ -28,6 +28,9 @@ def format(fp):
 		spaces -= level * 4
 		if spaces < 0: spaces = 0
 		header = '\t'*level + ' '*spaces  
+		if string: 
+			header = re.match(r'^[ \t]*',  line) # Do not touch the string 
+			header = header.group() if header else ""
 		for ch in line:
 			recent = (recent + ch)[1:]
 			if not comment and not string:

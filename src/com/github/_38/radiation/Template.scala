@@ -15,8 +15,8 @@ package com.github._38.radiation.template {
 		def e = new Template(tempStr, true)
 		def js = render()
 		val templateAST = fromString(tempStr) match {
-			case Program(ExpressionStat(what) :: _) if isExpr => List(what)
-			case Program(what) =>  what
+			case Program(ExpressionStat(what) :: _, _) if isExpr => List(what)
+			case Program(what, _) =>  what
 			case _             => throw new InvalidTemplateException("Malformed template")
 		}
 		val _isRef = "\\$\\$[0-9]+\\$\\$".r
@@ -43,14 +43,5 @@ package com.github._38.radiation.template {
 		import ast.ASTParser._
 		import ast.{Node, Program}
 		implicit def stringToTemplate(s:String) = new Template(s)
-		/*def main(args:Array[String]) {
-		    val targetAST = "true".js
-		
-		    val newAST = """function test()
-		                    {
-		                        $$0$$;
-	                        }""" render targetAST(0)
-		    System.out.println(newAST(0).targetCode)
-	    }*/
 	}
 }

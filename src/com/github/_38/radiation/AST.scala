@@ -16,6 +16,16 @@ import scala.reflect.{ClassTag, classTag}
 */
 package com.github._38.radiation.ast {
 	import Conversions._
+	
+	object ASTParser {
+		class RhinoASTConversion(from:RhinoAST.AstNode) {
+			def AST = Node.rhinoAstToInternal(from)
+		}
+		implicit def toConversionObject(from: RhinoAST.AstNode) = new RhinoASTConversion(from)
+		def fromString(program:String):Node =
+		    (new Parser).parse(program, null, 0).AST
+	}
+	
 	/** Describe a Location in a source code */
 	case class Location(val line:Int, val column:Int);
 	/** The base class for all AST Nodes */
@@ -42,8 +52,9 @@ package com.github._38.radiation.ast {
 		}
 		/* traverse the AST */
 		def traverse(transform:Node => Node):Node = {
+			Node.stack push this
 			val processed = transform(this)
-			if(processed ne this) processed   /* The node has been touched, do not go deeper */
+			val result = if(processed ne this) processed   /* The node has been touched, do not go deeper */
 			else
 			{
 				def processList(list:List[Node]):List[Node] = list match {
@@ -84,6 +95,8 @@ package com.github._38.radiation.ast {
 				if(changed) this.change(childRes)
 				else this
 			}
+			Node.stack.pop
+			result
 		}
 		def targetCode:String = pattern render
 		def targetCodeInfo:List[Info] = pattern info
@@ -95,20 +108,10 @@ package com.github._38.radiation.ast {
 			case _ => None
 		}
 	}
-	object ASTParser {
-		class RhinoASTConversion(from:RhinoAST.AstNode) {
-			def AST = Node.rhinoAstToInternal(from)
-		}
-		implicit def toConversionObject(from: RhinoAST.AstNode) = new RhinoASTConversion(from)
-		def fromString(program:String):Node =
-		    (new Parser).parse(program, null, 0).AST
-		/*def main(arg:Array[String]) {
-		    val ast = fromString("function a(x,y,z) { return x + y + z;}");
-		    System.out.println(ast.change(0, List[Statement]()))
-	    }*/
-	}
 	object Node {
 		import scala.collection.JavaConverters._
+		import scala.collection.mutable.Stack
+		val stack:Stack[Node] = Stack();  /* TODO: not thread safe */
 		class SyntaxError(message:String) extends Exception {
 			override def toString = "Syntax Error : " + message;
 		}
@@ -165,7 +168,7 @@ package com.github._38.radiation.ast {
 			case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[Id])
 			
 			case n:RhinoAST.ArrayLiteral          => Lst(n.getElements.list[Expression])
-			case n:RhinoAST.AstRoot               => Program(n.list[Statement])
+			case n:RhinoAST.AstRoot               => Program(n.list[Statement], getLocals(n))
 			case n:RhinoAST.Block                 => Block(n.list[Statement])
 			case _:RhinoAST.BreakStatement        => Break
 			case n:RhinoAST.CatchClause           => Catch(n.getVarName.required[Id], n.getCatchCondition.optional[Expression], n.getBody.required[Block])
@@ -395,9 +398,11 @@ package com.github._38.radiation.ast {
 		val pattern = "debugger;":Pattern
 		val cargs   = Seq()
 	}
-	case class Program(parts:List[Statement]) extends Node {
+	case class Program(parts:List[Statement], globals: Set[String]) extends Scope {
+        val localSymbols = globals
+        val globalSymbols = localSymbols   /* Bad naming, but if a local symbol of the entire program definately means globals */
 		val pattern = mkList(parts, "")
-		val cargs   = Seq(parts)
+		val cargs   = Seq(parts, globals)
 	}
 	case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression{
 		val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
