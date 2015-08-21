@@ -263,9 +263,13 @@ package com.github._38.radiation.ast {
 	trait ForLoopInitializer extends Node;
 	trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
 	trait Expression extends Node with ForLoopInitializer;
-	trait Scope extends Node {
-		val localSymbols:Set[String];
-	}
+	trait Scope extends Node ;
+    trait LocalScope extends Scope {
+        val localSymbols:Set[String]
+    }
+    trait GlobalScope extends Scope {
+        val globalSymbols:Set[String]
+    }
 	trait ControlFlow extends Statement;
 	trait Loop extends ControlFlow;
 	trait ForLoop extends Loop;
@@ -274,7 +278,7 @@ package com.github._38.radiation.ast {
 		val pattern = "Oops, you shouldn't see this":Pattern
 		val cargs = Seq()
 	}
-	abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Scope {
+	abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends LocalScope {
 		val localSymbols = locals
 		val shared = " " -- (name match {
 			case Some(name) => name
@@ -398,9 +402,8 @@ package com.github._38.radiation.ast {
 		val pattern = "debugger;":Pattern
 		val cargs   = Seq()
 	}
-	case class Program(parts:List[Statement], globals: Set[String]) extends Scope {
-        val localSymbols = globals
-        val globalSymbols = localSymbols   /* Bad naming, but if a local symbol of the entire program definately means globals */
+	case class Program(parts:List[Statement], globals: Set[String]) extends GlobalScope {
+        val globalSymbols = globals
 		val pattern = mkList(parts, "")
 		val cargs   = Seq(parts, globals)
 	}
