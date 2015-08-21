@@ -1,8 +1,10 @@
 import scala.language.implicitConversions
-import com.github._38.radiation.ast
-import com.github._38.radiation.template._
 import scala.collection.mutable
-package com.github._38.radiation.modules.closure {
+
+import io.github.radiation.ast
+import io.github.radiation.template._
+
+package io.github.radiation.modules.closure {
 	object ClosureExposure {
 		import Template._
 		import ast.{Node, End, Patch, Program, Nop, Bundle, FuncDef, FuncExp , Num, Id, Dict, :::, LocalScope, PE}
@@ -62,14 +64,16 @@ package com.github._38.radiation.modules.closure {
 			case _ => node
 		}
 		
-		def main(args:Array[String]) {
-			val program = ast.ASTParser.fromString("function x(x,y){return x + y;}")
-			
-			val newprogram = program traverse visitor
-			
-			System.out.println(newprogram.targetCode)
-			
-		}
+		def run(program:Node) = program traverse visitor
+		  
+		/*def main(args:Array[String]) {
+		    val program = ast.ASTParser.fromString("function x(x,y){return x + y;}")
+		    
+		    val newprogram = program traverse visitor
+		    
+		    System.out.println(newprogram.targetCode)
+		    
+	    }*/
 	}
 }
 

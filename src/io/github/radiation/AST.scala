@@ -2,7 +2,7 @@ import scala.language.postfixOps
 import scala.language.implicitConversions
 
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken}
-import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
+import io.github.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
@@ -14,54 +14,54 @@ import scala.reflect.{ClassTag, classTag}
          Generator is not implemented
          XML
 */
-package com.github._38.radiation.ast {
+package io.github.radiation.ast {
 	import Conversions._
 	
-    /** Define the top level API for the Radiation JS AST */
+	/** Define the top level API for the Radiation JS AST */
 	object ASTParser {
-        /** Implicitly convert helper Rhino AST to Radiation AST 
-         *  @param from The input Rhino AST root
-         */
+		/** Implicitly convert helper Rhino AST to Radiation AST
+		 *  @param from The input Rhino AST root
+		 */
 		class RhinoASTConversion(from:RhinoAST.AstNode) {
-            /** Get the result AST */
+			/** Get the result AST */
 			def AST = Node.rhinoAstToInternal(from)
 		}
-        /** The implicit converter that convers Rhino AST to Radiation AST Automatically 
-         *  @param from The source Rhino AST
-         *  @return The target Radiation AST
-         */
+		/** The implicit converter that convers Rhino AST to Radiation AST Automatically
+		 *  @param from The source Rhino AST
+		 *  @return The target Radiation AST
+		 */
 		implicit def toConversionObject(from: RhinoAST.AstNode) = new RhinoASTConversion(from)
-        /** Parse a string and return a Radiation AST
-         *  @param program The program text
-         *  @return The result AST Root
-         */
+		/** Parse a string and return a Radiation AST
+		 *  @param program The program text
+		 *  @return The result AST Root
+		 */
 		def fromString(program:String):Node = (new Parser).parse(program, null, 0).AST
 	}
 	
-	/** Describe a Location in a source code 
-     *  @param line Line number in the source code
-     *  @param column the column number
-     */
+	/** Describe a Location in a source code
+	 *  @param line Line number in the source code
+	 *  @param column the column number
+	 */
 	case class Location(val line:Int, val column:Int);
-
-
+	
+	
 	/** The base class for all AST Nodes */
 	abstract class Node {
-        /** Code pattern, how to convert this AST to program text */
+		/** Code pattern, how to convert this AST to program text */
 		val pattern:Pattern
-        /** Constructor Args, the Arguments used to build this node */
+		/** Constructor Args, the Arguments used to build this node */
 		val cargs:Seq[AnyRef]    /* This is used because we need to use refelection to create new object */
-        /** Source code locations, can be empty if it's a generated node */
+		/** Source code locations, can be empty if it's a generated node */
 		var location:Option[Location] = None
-        /** The length of the program text of this node */
+		/** The length of the program text of this node */
 		lazy val length:Int = pattern length
-		/** Make a new node with modifed constructor arguments 
-         *  @note All Radiation AST Node are Immutable, if we needs to change a node, we have to build a new one
-         *        This gives us the benift that we are able to share unchanged subtrees among different ASTs and
-         *        Do not need to worry about the shared part gets changed
-         *  @param what The new constrctor args
-         *  @return The new node build from the args, note that the node type is same as this
-         */
+		/** Make a new node with modifed constructor arguments
+		 *  @note All Radiation AST Node are Immutable, if we needs to change a node, we have to build a new one
+		 *        This gives us the benift that we are able to share unchanged subtrees among different ASTs and
+		 *        Do not need to worry about the shared part gets changed
+		 *  @param what The new constrctor args
+		 *  @return The new node build from the args, note that the node type is same as this
+		 */
 		def change(what:Seq[AnyRef]):Node = {
 			def buildArgs(prev:Seq[AnyRef], curr:Seq[AnyRef]):List[AnyRef] = (prev, curr) match {
 				case (p :: ps, c :: cs) => {
@@ -78,16 +78,16 @@ package com.github._38.radiation.ast {
 			cons.newInstance(args:_*).asInstanceOf[Node]
 		}
 		/** traverse the AST, make transformation at the same time
-         *  @note There's serveral virtual nodes that represents the update command, 
-         *        They are not real AST Node, but communication packets used between
-         *        This function and transformation function
-         *        Node.stack is used as a AST Node stack containing the path to current Node
-         *        This might be useful we analysing the code
-         *  @param transform A function from a Node to another Node. If the input and the output
-         *                   Is the same reference, continue traverse its child.
-         *                   Otherwise update the AST, construct a new AST contains newly returned Node
-         *  @return The new AST after transformation
-         */
+		 *  @note There's serveral virtual nodes that represents the update command,
+		 *        They are not real AST Node, but communication packets used between
+		 *        This function and transformation function
+		 *        Node.stack is used as a AST Node stack containing the path to current Node
+		 *        This might be useful we analysing the code
+		 *  @param transform A function from a Node to another Node. If the input and the output
+		 *                   Is the same reference, continue traverse its child.
+		 *                   Otherwise update the AST, construct a new AST contains newly returned Node
+		 *  @return The new AST after transformation
+		 */
 		def traverse(transform:Node => Node):Node = {
 			Node.stack push this
 			val processed = transform(this)
@@ -135,15 +135,15 @@ package com.github._38.radiation.ast {
 			Node.stack.pop
 			result
 		}
-        /** Get the program text from this AST */
+		/** Get the program text from this AST */
 		def targetCode:String = pattern render
-        /** A list contains Node to Source Code Location information */
+		/** A list contains Node to Source Code Location information */
 		def targetCodeInfo:List[Info] = pattern info
-        /** Support for update the location by calling node(newloc) */
+		/** Support for update the location by calling node(newloc) */
 		def apply(loc:Location) {
 			location = Some(loc)
 		}
-        /** Try to convert the node to specified type of node, None if not possible */
+		/** Try to convert the node to specified type of node, None if not possible */
 		def as[T <: Node: ClassTag]:Option[T] = this match {
 			case what if classTag[T].runtimeClass.isInstance(this) => Some(this.asInstanceOf[T])
 			case _ => None
@@ -152,31 +152,31 @@ package com.github._38.radiation.ast {
 	object Node {
 		import scala.collection.JavaConverters._
 		import scala.collection.mutable.Stack
-        /** Stack for AST traversing 
-         *  @note Not thread-safe, but don't care for now
-         */
+		/** Stack for AST traversing
+		 *  @note Not thread-safe, but don't care for now
+		 */
 		val stack:Stack[Node] = Stack();
-        /** We have much more strict syntax checking than rhino, might rise SyntaxError 
-         *  Even if the rhino parser accepted the program
-         *  @param message The error message to show
-         */
+		/** We have much more strict syntax checking than rhino, might rise SyntaxError
+		 *  Even if the rhino parser accepted the program
+		 *  @param message The error message to show
+		 */
 		class SyntaxError(message:String) extends Exception {
 			override def toString = "Syntax Error : " + message;
 		}
-        /** Helper class for conversion from Rhino AST to internal AST reprentations
-         *  @param from The source AST Node 
-         */
+		/** Helper class for conversion from Rhino AST to internal AST reprentations
+		 *  @param from The source AST Node
+		 */
 		class RhinoASTHelper(from:RhinoAST.AstNode){
-            /** Return an optional Radiation AST Node */
+			/** Return an optional Radiation AST Node */
 			def optional[T <: Node : ClassTag]:Option[T] = if(from != null) rhinoAstToInternal(from).as[T] else None
-            /** Return a Required AST Node, if not possible, throw Syntax error */
+			/** Return a Required AST Node, if not possible, throw Syntax error */
 			def required[T <: Node : ClassTag]:T         = if(from != null) {
 				rhinoAstToInternal(from).as[T] match {
 					case Some(value) => value
 					case None        => throw new SyntaxError("Type " + classTag[T] + " is expected, but we got a " + rhinoAstToInternal(from));
 				}
 			} else throw new SyntaxError("Required field not found")
-
+			
 			/** Convert the node to a list of Radiation Node (Typically for block, ast root etc ) */
 			def list[T <: Node : ClassTag]:List[T] = {
 				if(from == null) List[T]()
@@ -193,11 +193,11 @@ package com.github._38.radiation.ast {
 				case List() => List()
 			}
 		}
-        /** Helper class for conversion from Java List to Radiation List
-         *  @param from the source Rhino AST Node
-         */
+		/** Helper class for conversion from Java List to Radiation List
+		 *  @param from the source Rhino AST Node
+		 */
 		class JavaListHelper(from:java.util.List[_ <: RhinoAST.AstNode]) {
-            /** convert to Radiation AST Node List */
+			/** convert to Radiation AST Node List */
 			def list[T <: Node: ClassTag]: List[T] = {
 				import scala.collection.JavaConverters._
 				if(from == null) List[T]()
@@ -211,19 +211,19 @@ package com.github._38.radiation.ast {
 				case List() => List()
 			}
 		}
-        /** Get the local symbols from a RhinoAST Scope 
-         *  @param scope The rhino scope node 
-         */
+		/** Get the local symbols from a RhinoAST Scope
+		 *  @param scope The rhino scope node
+		 */
 		private def _getLocals(scope: RhinoAST.Scope):Set[String] =
 		    if(scope.getSymbolTable != null) scope.getSymbolTable.keySet.asScala.toSet else Set()
-        /** Convert the Rhino Opcode to Operator in Plain text 
-         *  @param opcode the Rhino opcode
-         */
+		/** Convert the Rhino Opcode to Operator in Plain text
+		 *  @param opcode the Rhino opcode
+		 */
 		private def _operatorString(opcode:Int) = (RhinoAST.AstNode operatorToString opcode) +
 		   (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID) " " else "")
-		/** Convert the Rhino AST Node to helper class */ 
+		/** Convert the Rhino AST Node to helper class */
 		implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
-        /** Convert Java list to Helper class */
+		/** Convert Java list to Helper class */
 		implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 		/** Convert the Rhino AST to Radiation AST */
 		def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
@@ -314,12 +314,12 @@ package com.github._38.radiation.ast {
 			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
 		}
 	}
-
-    /** AST node for a statement */
+	
+	/** AST node for a statement */
 	trait Statement extends Node {
-        /** The label set of the statement */
+		/** The label set of the statement */
 		var labels:List[String] = List();
-        /** The shared pattern if this statement contains a label */
+		/** The shared pattern if this statement contains a label */
 		def labeledPattern = if(labels.length > 0) ((new Compound(List())) /: labels)((p,s) => p -- s -- ":") -- pattern else pattern
 		override lazy val length:Int = labeledPattern length
 		override def targetCode:String = labeledPattern render
@@ -327,34 +327,34 @@ package com.github._38.radiation.ast {
 	}
 	/** AST Node that can be used in for loop initializer for(.....;;) */
 	trait ForLoopInitializer extends Node;
-    /** AST node for a L-value expression */
+	/** AST node for a L-value expression */
 	trait LHS extends Node;   /* means the lefthand side of assignment, var a = 3 or a = 3 or a["x"] = 3 */
-    /** AST represents an expression */
+	/** AST represents an expression */
 	trait Expression extends Node with ForLoopInitializer;
-    /** AST that carry local variables */
+	/** AST that carry local variables */
 	trait Scope extends Node ;
-    /** AST node for all scope that is not global scope */ 
+	/** AST node for all scope that is not global scope */
 	trait LocalScope extends Scope {
 		val localSymbols:Set[String]
 	}
-    /** AST node for Global scope */
+	/** AST node for Global scope */
 	trait GlobalScope extends Scope {
 		val globalSymbols:Set[String]
 	}
-    /** AST node for Control flow related statements */
+	/** AST node for Control flow related statements */
 	trait ControlFlow extends Statement;
-    /** AST node for all loops */
+	/** AST node for all loops */
 	trait Loop extends ControlFlow;
-    /** Any type of For loop */
+	/** Any type of For loop */
 	trait ForLoop extends Loop;
-    /** Any expression that has static value */
+	/** Any expression that has static value */
 	trait Constant extends Expression; /* For some literal constant */
 	/** Anything that is not a real AST Node */
-    trait VirtualNode extends Node {   /* Do not use this in the actual tree */
+	trait VirtualNode extends Node {   /* Do not use this in the actual tree */
 		val pattern = "Oops, you shouldn't see this":Pattern
 		val cargs = Seq()
 	}
-    /** Any function declerations */
+	/** Any function declerations */
 	abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends LocalScope {
 		val localSymbols = locals
 		val shared = " " -- (name match {
@@ -362,13 +362,13 @@ package com.github._38.radiation.ast {
 			case None       => Empty()
 		}) -- "(" -- mkList(args, ",") -- ")" -- body
 	}
-    /** Any properties for an object in Object literal */
+	/** Any properties for an object in Object literal */
 	trait Property extends Node;
 	
-    
-    /** Represents a block {stmt; stmt; .... }
-     *  @note ECMAScript 6 Actually treat a block as a scope as well, but not implemented by all browsers
-     */
+	
+	/** Represents a block {stmt; stmt; .... }
+	 *  @note ECMAScript 6 Actually treat a block as a scope as well, but not implemented by all browsers
+	 */
 	case class Block(statements:List[Statement]) extends Statement {
 		val pattern = "{" -- mkList(statements) -- "}"
 		val cargs   = Seq(statements)

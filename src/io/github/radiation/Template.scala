@@ -1,7 +1,7 @@
-import com.github._38.radiation.ast;
+import io.github.radiation.ast;
 import scala.language.implicitConversions;
 
-package com.github._38.radiation.template {
+package io.github.radiation.template {
 	import ast.ASTParser._
 	import ast._
 	class TemplateRenderingException(message:String) extends Exception {

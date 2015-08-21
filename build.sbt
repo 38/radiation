@@ -1,4 +1,4 @@
-organization := "com.github._38"
+organization := "io.github.radiation"
 
 name := "radiation"
 
@@ -19,7 +19,9 @@ libraryDependencies ++= Seq(
     "org.mozilla"    %    "rhino"    %    "1.7R5"
 )
 
-//addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.3.0"
+
+resolvers += Resolver.sonatypeRepo("public")
 
 scalacOptions ++= Seq("-unchecked", "-deprecation")
 
