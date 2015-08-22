@@ -373,10 +373,12 @@ package com.github._38.radiation.ast {
 		val pattern = "{" -- mkList(statements) -- "}"
 		val cargs   = Seq(statements)
 	}
+    /** Break statement */
 	case object Break extends ControlFlow {
 		val pattern = "break;":Pattern
 		val cargs   = Seq()
 	}
+    /** A catch clause catch(e) { .... } */
 	case class Catch(variable:Id, cond:Option[Expression], body:Block) extends Node {
 		val pattern = "catch(" -- variable -- (cond match {
 			case Some(cond) => " if " -- cond
@@ -384,10 +386,12 @@ package com.github._38.radiation.ast {
 		}) -- ")" -- body
 		val cargs   = Seq(variable, cond, body)
 	}
+    /** continue statement */
 	case object Continue extends ControlFlow {
 		val pattern = "continue;":Pattern;
 		val cargs   = Seq()
 	}
+    /** do { ... } while */
 	case class DoWhile(body:Statement, cond:Expression) extends Loop {
 		val pattern = "do " -- body -- "while(" -- cond -- ");"
 		val cargs   = Seq(body, cond)

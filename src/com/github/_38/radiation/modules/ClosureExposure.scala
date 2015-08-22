@@ -3,9 +3,10 @@ import scala.collection.mutable
 
 import com.github._38.radiation.ast
 import com.github._38.radiation.template._
+import com.github._38.radiation.modules.ASTModule
 
-package com.github._38.radiation.modules.closure {
-	object ClosureExposure {
+package com.github._38.radiation.modules {
+	object ClosureExposure extends ASTModule{
 		import Template._
 		import ast.{Node, End, Patch, Program, Nop, Bundle, FuncDef, FuncExp , Num, Id, Dict, :::, LocalScope, PE}
 		val funcDef = """$$0$$;  /* The function declearation */
