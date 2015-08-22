@@ -1,10 +1,10 @@
 import scala.language.implicitConversions
 import scala.collection.mutable
 
-import io.github.radiation.ast
-import io.github.radiation.template._
+import com.github._38.radiation.ast
+import com.github._38.radiation.template._
 
-package io.github.radiation.modules.closure {
+package com.github._38.radiation.modules.closure {
 	object ClosureExposure {
 		import Template._
 		import ast.{Node, End, Patch, Program, Nop, Bundle, FuncDef, FuncExp , Num, Id, Dict, :::, LocalScope, PE}

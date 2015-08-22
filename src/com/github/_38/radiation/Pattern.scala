@@ -1,8 +1,8 @@
-import io.github.radiation.ast._
+import com.github._38.radiation.ast._
 import scala.language.postfixOps
 import scala.language.implicitConversions
 
-package io.github.radiation.pattern {
+package com.github._38.radiation.pattern {
 	object Conversions {
 		implicit def stringToPattern(s:String) = new PlainText(s)
 		implicit def nodeToPattern(n:Node) = new SignleNode(n)

@@ -2,7 +2,7 @@ import scala.language.postfixOps
 import scala.language.implicitConversions
 
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken}
-import io.github.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
+import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
@@ -14,7 +14,7 @@ import scala.reflect.{ClassTag, classTag}
          Generator is not implemented
          XML
 */
-package io.github.radiation.ast {
+package com.github._38.radiation.ast {
 	import Conversions._
 	
 	/** Define the top level API for the Radiation JS AST */
