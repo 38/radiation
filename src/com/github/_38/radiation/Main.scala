@@ -12,7 +12,7 @@ package com.github._38.radiation {
 		}
 		def run_module(module:String) {
 			import scala.reflect.runtime.universe
-			val moduleClz = Class.forName(module + "$")
+			val moduleClz = Class.forName("com.github._38.radiation.modules." + module + "$")
 			val moduleObj = moduleClz.getField("MODULE$").get(null).asInstanceOf[ASTModule]
 			System.out.println(moduleObj.run(ASTParser.fromString("function f(x,y){return x + y;}")).targetCode)
 		}

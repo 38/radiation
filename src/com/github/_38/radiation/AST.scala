@@ -6,6 +6,8 @@ import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Comp
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
+import java.io.FileReader
+
 /* note: Let expression is not implemented
          Arrow Function is not implemented
          for of loop is not implemented
@@ -36,6 +38,11 @@ package com.github._38.radiation.ast {
 		 *  @return The result AST Root
 		 */
 		def fromString(program:String):Node = (new Parser).parse(program, null, 0).AST
+        /** Parse a file and return AST 
+         *  @param  path the file path
+         *  @return the result ast
+         */
+         //def fromFile(path:String):Node = (new Parser).parse(program, null, 0).AST
 	}
 	
 	/** Describe a Location in a source code
@@ -396,18 +403,22 @@ package com.github._38.radiation.ast {
 		val pattern = "do " -- body -- "while(" -- cond -- ");"
 		val cargs   = Seq(body, cond)
 	}
+    /** element get [...] */
 	case class Index(target:Expression, key:Expression) extends Expression  with LHS{
 		val pattern = target -- "[" -- key -- "]"
 		val cargs   = Seq(target, key)
 	}
+    /** List Literal [1,2,3] */
 	case class Lst(values:List[Expression]) extends Expression {
 		val pattern = "[" -- mkList(values, ",") -- "]"
 		val cargs   = Seq(values)
 	}
+    /** Number Literal */
 	case class Num(value:String) extends Constant {
 		val pattern = value:Pattern;
 		val cargs   = Seq(value)
 	}
+    /** Try statement */
 	case class Try(tryBlock:Block, catchBlocks:List[Catch], finallyBlock:Option[Block]) extends Statement {
 		val pattern = "try" -- tryBlock -- mkList(catchBlocks) -- (finallyBlock match {
 			case Some(finallyBlock) => "finally " -- finallyBlock
