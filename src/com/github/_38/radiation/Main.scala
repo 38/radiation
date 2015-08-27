@@ -8,7 +8,7 @@ package com.github._38.radiation {
 		val parser = new OptionParser[Config]("radiation") {
 			head("radiation", "0.1")
 			opt[String]('m', "module") action {(x,c) => c.copy(module = x)} text("The class path to the module to run")
-            arg[String]("<file>") unbounded() action{(x,c) => c.copy(path = x)} text("The source file to read")
+			arg[String]("<file>") unbounded() action{(x,c) => c.copy(path = x)} text("The source file to read")
 			help("help")                                                     text("Show this help message")
 		}
 		def run_module(module:String, path:String) {

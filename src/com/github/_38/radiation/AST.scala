@@ -43,15 +43,15 @@ package com.github._38.radiation.ast {
 		 *  @return the result ast
 		 */
 		 def fromFile(path:String):Node = {
-             val prev_postConversion = Node.postNodeConvert
-             Node.postNodeConvert = ((n:Node) => {
-                 n(Location(0, Node.currentPosition))
-                 n
-             })
-             val result = (new Parser).parse(new FileReader(path), path, 0).AST
-             Node.postNodeConvert = prev_postConversion
-             result
-         }
+			 val prev_postConversion = Node.postNodeConvert
+			 Node.postNodeConvert = ((n:Node) => {
+				 n(Location(0, Node.currentPosition))
+				 n
+			 })
+			 val result = (new Parser).parse(new FileReader(path), path, 0).AST
+			 Node.postNodeConvert = prev_postConversion
+			 result
+		 }
 	}
 	
 	/** Describe a Location in a source code
@@ -59,23 +59,23 @@ package com.github._38.radiation.ast {
 	 *  @param column the column number, the offset can be out of range, so we need use normalize function
 	 */
 	case class Location(val line:Int, val column:Int) {
-        /** normalize means figure out the undefined line number, and make sure line offset
-         *  is in the range of the line
-         *  @param lines the list of offset of the beginning of each line
-         */
-        def normalize(lines:List[Int]) = {
-            val base = lines(line)
-            val offset = column
-            var (l,r) = (0, lines.size - line)
-            while(r - l > 1) {
-                val m = (l + r) / 2
-                if(lines(m) - base <= offset) l = m
-                else r = m
-            }
-            new Location(l + line, column + base - lines(l))
-        }
-    }
-    
+		/** normalize means figure out the undefined line number, and make sure line offset
+		 *  is in the range of the line
+		 *  @param lines the list of offset of the beginning of each line
+		 */
+		def normalize(lines:List[Int]) = {
+			val base = lines(line)
+			val offset = column
+			var (l,r) = (0, lines.size - line)
+			while(r - l > 1) {
+				val m = (l + r) / 2
+				if(lines(m) - base <= offset) l = m
+				else r = m
+			}
+			new Location(l + line, column + base - lines(l))
+		}
+	}
+	
 	
 	
 	/** The base class for all AST Nodes */
@@ -100,9 +100,9 @@ package com.github._38.radiation.ast {
 				case (p :: ps, c :: cs) => {
 					p match {
 						case p:Option[_] => (c match {
-                            case None => None
-                            case _    =>Some(c) 
-                        }):: buildArgs(ps, cs)
+							case None => None
+							case _    =>Some(c)
+						}):: buildArgs(ps, cs)
 						case _        => c :: buildArgs(ps, cs)
 					}
 				}
@@ -191,11 +191,11 @@ package com.github._38.radiation.ast {
 		 *  @note Not thread-safe, but don't care for now
 		 */
 		val stack:Stack[Node] = Stack()
-        /** The offset of current node, used when parse a file input, evil side-effect :( */
-        var currentPosition = 0
-        /** The callback function after a node is converted, introducing evil side-effect :( */
-        var postNodeConvert = ((n:Node) => n)
-        
+		/** The offset of current node, used when parse a file input, evil side-effect :( */
+		var currentPosition = 0
+		/** The callback function after a node is converted, introducing evil side-effect :( */
+		var postNodeConvert = ((n:Node) => n)
+		
 		/** We have much more strict syntax checking than rhino, might rise SyntaxError
 		 *  Even if the rhino parser accepted the program
 		 *  @param message The error message to show
@@ -259,8 +259,8 @@ package com.github._38.radiation.ast {
 		/** Convert the Rhino Opcode to Operator in Plain text
 		 *  @param opcode the Rhino opcode
 		 */
-		private def _operatorString(opcode:Int) = (if(opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "") + 
-           (RhinoAST.AstNode operatorToString opcode) + 
+		private def _operatorString(opcode:Int) = (if(opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "") +
+		   (RhinoAST.AstNode operatorToString opcode) +
 		   (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID || opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "")
 		/** Convert the Rhino AST Node to helper class */
 		implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
@@ -282,7 +282,7 @@ package com.github._38.radiation.ast {
 			                                            n.getFalseExpression.required[Expression])
 			case n:RhinoAST.ContinueStatement     => Continue
 			case n:RhinoAST.DoLoop                => DoWhile(n.getBody.required[Statement], n.getCondition.required[Expression])
-            case n:RhinoAST.WhileLoop             => While(n.getCondition.required[Expression], n.getBody.required[Statement])
+			case n:RhinoAST.WhileLoop             => While(n.getCondition.required[Expression], n.getBody.required[Statement])
 			case n:RhinoAST.ElementGet            => Index(n.getTarget.required[Expression], n.getElement.required[Expression])
 			case n:RhinoAST.EmptyExpression       => EmptyExpr
 			case n:RhinoAST.EmptyStatement        => EmptyStat
@@ -355,14 +355,14 @@ package com.github._38.radiation.ast {
 			}
 			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
 		}
-        /** Convert a rhino ast to the Radiation one, introducing side effect ! */
-        def rhinoAstToInternal(node:RhinoAST.AstNode) = {
-            val tmp = _rhinoAstToInternalImpl(node)
-            currentPosition = currentPosition + node.getPosition
-            val result = postNodeConvert(tmp)
-            currentPosition = currentPosition - node.getPosition
-            result
-        }
+		/** Convert a rhino ast to the Radiation one, introducing side effect ! */
+		def rhinoAstToInternal(node:RhinoAST.AstNode) = {
+			val tmp = _rhinoAstToInternalImpl(node)
+			currentPosition = currentPosition + node.getPosition
+			val result = postNodeConvert(tmp)
+			currentPosition = currentPosition - node.getPosition
+			result
+		}
 	}
 	
 	/** AST node for a statement */
@@ -469,58 +469,58 @@ package com.github._38.radiation.ast {
 		  })
 		val cargs   = Seq(tryBlock, catchBlocks, finallyBlock)
 	}
-    /** The Identifier */
+	/** The Identifier */
 	case class Id(text:String) extends Expression with LHS {
 		val pattern = text:Pattern
 		val cargs   = Seq(text)
 	}
-    /** Simply means nothing */
+	/** Simply means nothing */
 	case object EmptyExpr extends Expression {
 		val pattern = Empty()
 		val cargs   = Seq()
 	}
-    /** Simply a ';' */
+	/** Simply a ';' */
 	case object EmptyStat extends Statement {
 		val pattern = ";":Pattern
 		val cargs   = Seq()
 	}
-    /** Wrap an expression to a statement */
+	/** Wrap an expression to a statement */
 	case class ExpressionStat(expression:Expression) extends Statement {
 		val pattern = expression -- ";"
 		val cargs   = Seq(expression)
 	}
-    /** for(x in y) { ... } loop */
+	/** for(x in y) { ... } loop */
 	case class ForIn(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
 		val pattern = "for(" -- iterator -- " in " -- iterationObject -- ")" -- body
 		val cargs   = Seq(iterator, iterationObject, body)
 	}
-    /** for each(x in y) loop */
+	/** for each(x in y) loop */
 	case class ForEach(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
 		val pattern = "for each(" -- iterator -- " in " -- iterationObject -- ")" -- body
 		val cargs   = Seq(iterator, iterationObject, body)
 	}
-    /** for(i = 0; i &lt; j; i ++) loop */
+	/** for(i = 0; i &lt; j; i ++) loop */
 	case class For(initial:ForLoopInitializer, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
 		val pattern = "for(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
 		val cargs   = Seq(initial, cond, inc, body)
 	}
-    /** A function invocation */
+	/** A function invocation */
 	case class Call(target:Expression, args:List[Expression]) extends Expression {
 		val pattern = target -- "(" -- mkList(args, ",") -- ")"
 		val cargs   = Seq(target, args)
 	}
-    /** A function define as an expression */
+	/** A function define as an expression */
 	case class FuncExp(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Expression {
 		override val pattern = "function" -- shared
 		val cargs   = Seq(name, args, body, locals)
 	}
-    /** A function define statement */
+	/** A function define statement */
 	case class FuncDef(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
 		override val pattern =  "function"-- shared -- ";"
 		val cargs   = Seq(name, args, body, locals)
-        def asExpr = FuncExp(name, args, body, locals)
+		def asExpr = FuncExp(name, args, body, locals)
 	}
-    /** An if(cond) then(); else else(); statement */
+	/** An if(cond) then(); else else(); statement */
 	case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
 		val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
 			case None => Empty()
@@ -528,73 +528,73 @@ package com.github._38.radiation.ast {
 		})
 		val cargs   = Seq(cond, thenClause, elseCluase)
 	}
-    /** Binary operators */
+	/** Binary operators */
 	case class BinOp(op:String, left:Expression, right:Expression) extends Expression {
 		val pattern = left -- op -- right
 		val cargs   = Seq(op, left, right)
 	}
-    /** Constant 'True' */
+	/** Constant 'True' */
 	case object True extends Constant {
 		val pattern = "true":Pattern
 		val cargs   = Seq()
 	}
-    /** Constant 'False' */
+	/** Constant 'False' */
 	case object False extends Constant {
 		val pattern = "false":Pattern
 		val cargs   = Seq()
 	}
-    /** Constant 'Null' */
+	/** Constant 'Null' */
 	case object Null extends Constant {
 		val pattern = "null":Pattern
 		val cargs   = Seq()
 	}
-    /** Constant 'this' */
+	/** Constant 'this' */
 	case object This extends Expression {   /* This is the only exception, because the value of this can change */
 		val pattern = "this":Pattern
 		val cargs   = Seq()
 	}
-    /** Keyword debugger */
+	/** Keyword debugger */
 	case object Debugger extends Statement {
 		val pattern = "debugger;":Pattern
 		val cargs   = Seq()
 	}
-    /** root of AST */
+	/** root of AST */
 	case class Program(parts:List[Statement], globals: Set[String]) extends GlobalScope {
 		val globalSymbols = globals
 		val pattern = mkList(parts, "")
 		val cargs   = Seq(parts, globals)
 	}
-    /* Tenary operator */
+	/* Tenary operator */
 	case class ?:(cond:Expression, trueExpr:Expression, falseExpr:Expression) extends Expression{
 		val pattern = cond -- "?" -- trueExpr -- ":" -- falseExpr
 		val cargs   = Seq(cond, trueExpr, falseExpr)
 	}
-    /** A new expression */
+	/** A new expression */
 	case class New(target:Expression, args:List[Expression]) extends Expression{ /* initializer is not standard syntax seems not useful */
 		val pattern = "new " -- target -- " " -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
 		val cargs   = Seq(target, args)
 	}
-    /** A key value pair in {key:vlaue} literal */
+	/** A key value pair in {key:vlaue} literal */
 	case class :::(left:Expression, right:Expression) extends Property {
 		val pattern = left -- ":" -- right
 		val cargs   = Seq(left, right)
 	}
-    /** {key: value, ...} literal */
+	/** {key: value, ...} literal */
 	case class Dict(props:List[Property]) extends Expression {
 		val pattern = "{" -- mkList(props, ",") -- "}"
 		val cargs   = Seq(props)
 	}
-    /** (expr) */
+	/** (expr) */
 	case class PE(expr:Expression) extends Expression {
 		val pattern = "(" -- expr -- ")"
 		val cargs   = Seq(expr)
 	}
-    /** 'dot' operator x.y */
+	/** 'dot' operator x.y */
 	case class ->(left:Expression, right:Id) extends Expression{
 		val pattern = left -- "." -- right
 		val cargs   = Seq(left, right)
 	}
-    /** Regular expression literal */
+	/** Regular expression literal */
 	case class Reg(expr:String, flg:Option[String]) extends Constant {
 		val pattern = Empty() -- "/" -- expr -- "/" -- (flg match {
 			case Some(flg) => flg
@@ -602,12 +602,12 @@ package com.github._38.radiation.ast {
 		})
 		val cargs   = Seq(expr, flg)
 	}
-    /** String literal */
+	/** String literal */
 	case class Str(quote:String, value:String) extends Constant {
 		val pattern = Empty() -- quote -- ScriptRuntime.escapeString(value, quote(0)) -- quote
 		val cargs   = Seq(quote, value)
 	}
-    /** Return statement */
+	/** Return statement */
 	case class Return(what:Option[Expression]) extends ControlFlow{
 		val pattern = "return" -- (what match {
 			case Some(what)  =>  " " -- what
@@ -615,7 +615,7 @@ package com.github._38.radiation.ast {
 		}) -- ";"
 		val cargs   = Seq(what)
 	}
-    /** a switch case */
+	/** a switch case */
 	case class Case(test:Option[Expression], statements:List[Statement]) extends Node {
 		val pattern = test match {
 			case Some(test)  => "case " -- test -- ":" -- mkList(statements, "")
@@ -623,27 +623,27 @@ package com.github._38.radiation.ast {
 		}
 		val cargs   = Seq(test, statements)
 	}
-    /** Switch statement */
+	/** Switch statement */
 	case class Switch(test:Expression, cases:List[Case]) extends ControlFlow {
 		val pattern = "switch(" -- test -- "){" -- mkList(cases, " ") -- "}"
 		val cargs   = Seq(test, cases)
 	}
-    /** throw statement */
+	/** throw statement */
 	case class Throw(expr:Expression) extends ControlFlow {
 		val pattern = "throw " -- expr -- ";"
 		val cargs   = Seq(expr)
 	}
-    /** Prefix operators */
+	/** Prefix operators */
 	case class $_(opcode:String, operand:Expression) extends Expression {
 		val pattern = opcode -- operand
 		val cargs   = Seq(opcode, operand)
 	}
-    /** Suffix operators */
+	/** Suffix operators */
 	case class _$(opcode:String, operand:Expression) extends Expression {
 		val pattern = operand -- opcode
 		val cargs   = Seq(opcode, operand)
 	}
-    /** Variable declsi a or a = 3 */
+	/** Variable declsi a or a = 3 */
 	case class VarDecl(name:Id, initval:Option[Expression]) extends Node {
 		val pattern = name -- (initval match {
 			case Some(value) => "=" -- value
@@ -651,30 +651,30 @@ package com.github._38.radiation.ast {
 		})
 		val cargs   = Seq(name, initval)
 	}
-    /** Var Decl statement */
+	/** Var Decl statement */
 	case class DefineStmt(how:String, what:List[VarDecl]) extends Statement {
 		val pattern = Empty() -- how -- " " -- mkList(what, ",") -- ";"
 		val cargs   = Seq(how, what)
 	}
-    /** For(var xxx = 3;;) */
+	/** For(var xxx = 3;;) */
 	case class DefineInit(how:String, what:List[VarDecl]) extends ForLoopInitializer {
 		val pattern = Empty() -- how -- " " -- mkList(what, ",")
 		val cargs   = Seq(how, what)
 	}
-    /* while(...) xxxxx loop */
-    case class While(cond:Expression, body:Statement) extends Loop {
-        val pattern = "while(" -- cond -- ")" -- body
-        val cargs   = Seq(cond, body)
-    }
-    /** Virtual Node, AST Traveser provide this to transformer, indicates we are about to process the node */
+	/* while(...) xxxxx loop */
+	case class While(cond:Expression, body:Statement) extends Loop {
+		val pattern = "while(" -- cond -- ")" -- body
+		val cargs   = Seq(cond, body)
+	}
+	/** Virtual Node, AST Traveser provide this to transformer, indicates we are about to process the node */
 	case class Begin(what:Node) extends VirtualNode;   /* Indicates we are about to processing the Node */
-    /** Virtual Node, AST traverser provide this to transformer, indicates we are finish the process of the node */
+	/** Virtual Node, AST traverser provide this to transformer, indicates we are finish the process of the node */
 	case class End(what:Node) extends VirtualNode;     /* Indicates we are almost done with the node */
-    /** Virtual Node, transformer provide this to AST traverser, request to patch a child list */
+	/** Virtual Node, transformer provide this to AST traverser, request to patch a child list */
 	case class Patch(begin:Int, what:List[Node], howmany:Int) extends VirtualNode;  /* Callback needs to patch the list */
-    /** Virtual Node, transformer provide this to AST traverser, insert the list to current child list */
+	/** Virtual Node, transformer provide this to AST traverser, insert the list to current child list */
 	case class Bundle(what:List[Node]) extends VirtualNode;
-    /** Virtual Node, transformer provide this to AST traverser, means nothing to do, but keep going on to the child */
+	/** Virtual Node, transformer provide this to AST traverser, means nothing to do, but keep going on to the child */
 	case object Nop extends VirtualNode;   /* Do Nothing */
 }
 
