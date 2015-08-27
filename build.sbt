@@ -16,7 +16,7 @@ resolvers ++= Seq(
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
 
 libraryDependencies ++= Seq(
-    "org.mozilla"    %    "rhino"    %    "1.7R5"
+    "org.mozilla"    %    "rhino"    %    "1.7.7"
 )
 
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.3.0"

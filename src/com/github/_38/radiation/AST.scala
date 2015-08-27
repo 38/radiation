@@ -1,7 +1,7 @@
 import scala.language.postfixOps
 import scala.language.implicitConversions
 
-import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken}
+import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken, ScriptRuntime}
 import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
@@ -99,7 +99,10 @@ package com.github._38.radiation.ast {
 			def buildArgs(prev:Seq[AnyRef], curr:Seq[AnyRef]):List[AnyRef] = (prev, curr) match {
 				case (p :: ps, c :: cs) => {
 					p match {
-						case p:Option[_] => Some(c) :: buildArgs(ps, cs)
+						case p:Option[_] => (c match {
+                            case None => None
+                            case _    =>Some(c) 
+                        }):: buildArgs(ps, cs)
 						case _        => c :: buildArgs(ps, cs)
 					}
 				}
@@ -123,9 +126,8 @@ package com.github._38.radiation.ast {
 		 */
 		def traverse(transform:Node => Node):Node = {
 			Node.stack push this
-			val processed = transform(this)
-			val result = if(processed ne this) processed   /* The node has been touched, do not go deeper */
-			else
+			val result = /*if(processed ne this) processed
+			else*/
 			{
 				def processList(list:List[Node]):List[Node] = list match {
 					case x :: xs => {
@@ -137,7 +139,6 @@ package com.github._38.radiation.ast {
 								case _                               => what ++ next
 							}
 							case newNode:Node => {
-								val next = processList(xs)
 								if((newNode eq x) && (next eq xs)) list
 								else newNode :: next
 							}
@@ -165,8 +166,9 @@ package com.github._38.radiation.ast {
 				if(changed) this.change(childRes)
 				else this
 			}
+			val processed = transform(result)
 			Node.stack.pop
-			result
+			processed
 		}
 		/** Get the program text from this AST */
 		def targetCode:String = pattern render
@@ -257,8 +259,9 @@ package com.github._38.radiation.ast {
 		/** Convert the Rhino Opcode to Operator in Plain text
 		 *  @param opcode the Rhino opcode
 		 */
-		private def _operatorString(opcode:Int) = (RhinoAST.AstNode operatorToString opcode) +
-		   (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID) " " else "")
+		private def _operatorString(opcode:Int) = (if(opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "") + 
+           (RhinoAST.AstNode operatorToString opcode) + 
+		   (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID || opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "")
 		/** Convert the Rhino AST Node to helper class */
 		implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
 		/** Convert Java list to Helper class */
@@ -279,6 +282,7 @@ package com.github._38.radiation.ast {
 			                                            n.getFalseExpression.required[Expression])
 			case n:RhinoAST.ContinueStatement     => Continue
 			case n:RhinoAST.DoLoop                => DoWhile(n.getBody.required[Statement], n.getCondition.required[Expression])
+            case n:RhinoAST.WhileLoop             => While(n.getCondition.required[Expression], n.getBody.required[Statement])
 			case n:RhinoAST.ElementGet            => Index(n.getTarget.required[Expression], n.getElement.required[Expression])
 			case n:RhinoAST.EmptyExpression       => EmptyExpr
 			case n:RhinoAST.EmptyStatement        => EmptyStat
@@ -330,7 +334,7 @@ package com.github._38.radiation.ast {
 			case n:RhinoAST.ParenthesizedExpression => PE(n.getExpression.required[Expression])
 			case n:RhinoAST.RegExpLiteral         => Reg(n.getValue, (if(n.getFlags == null) None else Some(n.getFlags)))
 			case n:RhinoAST.ReturnStatement       => Return(n.getReturnValue.optional[Expression])
-			case n:RhinoAST.StringLiteral         => Str(n.getValue)
+			case n:RhinoAST.StringLiteral         => Str(n.getQuoteCharacter.toString, n.getValue)
 			case n:RhinoAST.SwitchCase            => Case(n.getExpression.optional[Expression], n.getStatements.list[Statement])
 			case n:RhinoAST.SwitchStatement       => Switch(n.getExpression.required[Expression], n.getCases.list[Case])
 			/* As Meta-Data Node, Symbol Node is ignored */
@@ -514,6 +518,7 @@ package com.github._38.radiation.ast {
 	case class FuncDef(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
 		override val pattern =  "function"-- shared -- ";"
 		val cargs   = Seq(name, args, body, locals)
+        def asExpr = FuncExp(name, args, body, locals)
 	}
     /** An if(cond) then(); else else(); statement */
 	case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
@@ -598,9 +603,9 @@ package com.github._38.radiation.ast {
 		val cargs   = Seq(expr, flg)
 	}
     /** String literal */
-	case class Str(value:String) extends Constant {
-		val pattern = Empty() -- "\"" -- value -- "\""
-		val cargs   = Seq(value)
+	case class Str(quote:String, value:String) extends Constant {
+		val pattern = Empty() -- quote -- ScriptRuntime.escapeString(value, quote(0)) -- quote
+		val cargs   = Seq(quote, value)
 	}
     /** Return statement */
 	case class Return(what:Option[Expression]) extends ControlFlow{
@@ -656,6 +661,11 @@ package com.github._38.radiation.ast {
 		val pattern = Empty() -- how -- " " -- mkList(what, ",")
 		val cargs   = Seq(how, what)
 	}
+    /* while(...) xxxxx loop */
+    case class While(cond:Expression, body:Statement) extends Loop {
+        val pattern = "while(" -- cond -- ")" -- body
+        val cargs   = Seq(cond, body)
+    }
     /** Virtual Node, AST Traveser provide this to transformer, indicates we are about to process the node */
 	case class Begin(what:Node) extends VirtualNode;   /* Indicates we are about to processing the Node */
     /** Virtual Node, AST traverser provide this to transformer, indicates we are finish the process of the node */
