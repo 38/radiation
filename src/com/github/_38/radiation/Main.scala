@@ -18,10 +18,11 @@ package com.github._38.radiation {
 		}
 		def main(args:Array[String]) {
 			
-			parser.parse(args, Config()) match {
+            ASTParser.fromFile("../jsdb/test/jquery.js")
+			/*parser.parse(args, Config()) match {
 				case Some(config) => run_module(config.module); System.exit(0)
 				case None         => System.exit(1)
-			}
+			}*/
 			
 		}
 	}
