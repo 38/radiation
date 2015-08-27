@@ -66,15 +66,6 @@ package com.github._38.radiation.modules {
 		}
 		
 		def run(program:Node) = program traverse visitor
-		  
-		/*def main(args:Array[String]) {
-		    val program = ast.ASTParser.fromString("function x(x,y){return x + y;}")
-		    
-		    val newprogram = program traverse visitor
-		    
-		    System.out.println(newprogram.targetCode)
-		    
-	    }*/
 	}
 }
 

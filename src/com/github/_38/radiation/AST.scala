@@ -122,6 +122,7 @@ package com.github._38.radiation.ast {
 		 *  @param transform A function from a Node to another Node. If the input and the output
 		 *                   Is the same reference, continue traverse its child.
 		 *                   Otherwise update the AST, construct a new AST contains newly returned Node
+		 *  @note Currently considering another interface using the stream of (nodes, stack) for traverse
 		 *  @return The new AST after transformation
 		 */
 		def traverse(transform:Node => Node):Node = {
