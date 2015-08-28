@@ -13,12 +13,12 @@ package com.github._38.radiation.codemap {
 		case class _ItemParserState(val fileno:Int, val gline:Int, val gcol:Int, val sline:Int, val scol:Int, val name:Int) {
 			//def nextColumn(delta:Int) = _ItemParserState(line, column /*+ delta*/);
 			//def nextLine = _ItemParserState(line + 1, 0);
-            def NL = _ItemParserState(fileno, gline + 1, 0, sline, scol, name)
+			def NL = _ItemParserState(fileno, gline + 1, 0, sline, scol, name)
 		}
-        implicit def _convertToParserState(map:CodeMap):_ItemParserState = {
-            val CodeMap(fileno, name, Position(gline, gcol), Position(sline, scol)) = map
-            _ItemParserState(fileno, gline, gcol, sline, scol, name)
-        }
+		implicit def _convertToParserState(map:CodeMap):_ItemParserState = {
+			val CodeMap(fileno, name, Position(gline, gcol), Position(sline, scol)) = map
+			_ItemParserState(fileno, gline, gcol, sline, scol, name)
+		}
 		lazy val charSet = ('A' to 'Z') ++ ('a' to 'z') ++ Seq('+', '/')
 		lazy val termVal = ((0 to 31) zip charSet) toMap
 		lazy val initVal = ((0 to 31) zip (charSet drop 32)) toMap
@@ -39,32 +39,32 @@ package com.github._38.radiation.codemap {
 			}
 			case Stream.Empty => Stream.Empty
 		}
-        def _nextStream(status:_ItemParserState, rem:Stream[Token], gcol:Int = 0, fileno:Int = 0, sline:Int = 0, scol:Int = 0, name:Int = 0) = {
-            val newfileno = fileno + status.fileno
-            val newgline  = status.gline
-            val newgcol   = gcol + status.gcol
-            val newsline  = sline + status.sline
-            val newscol   = scol  + status.scol
-            val newname   = name + status.name
-            val next = CodeMap(newfileno, newname, Position(newgline, newgcol), Position(newsline, newscol))
-            next #:: _parseItem(rem, next)
-        }
+		def _nextStream(status:_ItemParserState, rem:Stream[Token], gcol:Int = 0, fileno:Int = 0, sline:Int = 0, scol:Int = 0, name:Int = 0) = {
+			val newfileno = fileno + status.fileno
+			val newgline  = status.gline
+			val newgcol   = gcol + status.gcol
+			val newsline  = sline + status.sline
+			val newscol   = scol  + status.scol
+			val newname   = name + status.name
+			val next = CodeMap(newfileno, newname, Position(newgline, newgcol), Position(newsline, newscol))
+			next #:: _parseItem(rem, next)
+		}
 		def _parseItem(s:Stream[Token], state:_ItemParserState = _ItemParserState(0,0,0,0,0,0)):Stream[Token] = s match {
 			case Num(genCol) #:: (rem @ (LSep | MSep) #::_) =>
-                _nextStream(state, rem, genCol)
+			    _nextStream(state, rem, genCol)
 			case Num(genCol) #:: Num(srcIdx) #:: (rem @ (LSep | MSep) #:: _)=>
-                _nextStream(state, rem, genCol, srcIdx)
+			    _nextStream(state, rem, genCol, srcIdx)
 			case Num(genCol) #:: Num(srcIdx) #:: Num(orgLine) #:: (rem @ (LSep | MSep) #:: _)=>
-                _nextStream(state, rem, genCol, srcIdx, orgLine)
+			    _nextStream(state, rem, genCol, srcIdx, orgLine)
 			case Num(genCol) #:: Num(srcIdx) #:: Num(orgLine) #:: Num(orgCol) #:: (rem @ (LSep | MSep) #:: _)=>
-                _nextStream(state, rem, genCol, srcIdx, orgLine, orgCol)
+			    _nextStream(state, rem, genCol, srcIdx, orgLine, orgCol)
 			case Num(genCol) #:: Num(srcIdx) #:: Num(orgLine) #:: Num(orgCol) #:: Num(symId) #:: (rem @ (LSep | MSep) #:: _) =>
-                _nextStream(state, rem, genCol, srcIdx, orgLine, orgCol, symId)
+			    _nextStream(state, rem, genCol, srcIdx, orgLine, orgCol, symId)
 			case LSep #:: rem     => _parseItem(rem, state NL)
 			case MSep #:: rem     => _parseItem(rem, state)
 			case whatever #:: rem => whatever #:: _parseItem(rem)
 			case Stream.Empty     => Stream.Empty
 		}
-        def parse(map:String) = _parseItem(_parseLex(map toStream))
+		def parse(map:String) = _parseItem(_parseLex(map toStream))
 	}
 }
