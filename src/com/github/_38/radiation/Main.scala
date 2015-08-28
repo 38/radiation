@@ -1,6 +1,6 @@
 import com.github._38.radiation.modules.ASTModule
 import com.github._38.radiation.ast.{Node, ASTParser}
-
+import com.github._38.radiation.codemap.VLQCodeMap
 package com.github._38.radiation {
 	case class Config(module:String = "", path:String = "")
 	object Main {
@@ -18,7 +18,7 @@ package com.github._38.radiation {
 			System.out.println(moduleObj.run(ASTParser.fromFile(path)).targetCode)
 		}
 		def main(args:Array[String]) {
-			
+		    System.out.println(VLQCodeMap.parse("AAAA,SAAS,CAAC,CAAC,CAAQ,EAAE,CAAQ;IAEzBA,OAAOA,CAACA,GAAGA,CAACA;AAChBA,CAACA;").toList)
 			parser.parse(args, Config()) match {
 				case Some(config) => run_module(config.module, config.path); System.exit(0)
 				case None         => System.exit(1)
