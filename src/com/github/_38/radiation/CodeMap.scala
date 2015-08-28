@@ -79,13 +79,30 @@ package com.github._38.radiation.codemap {
 		}
 		def parse(map:String) = _parseItem(_parseLex(map toStream))
 	}
-	case class SourceMapFile(version:Int, generated:String, sources:List[String], sourceContent:String, symbols:List[String], mappings:List[VLQCodeMap.CodeMap]);
+	case class SourceMapFile(version:Int,
+	                         generated:Option[String],
+	                         sources:Option[List[String]],
+	                         symbols:Option[List[String]],
+	                         mappings:List[VLQCodeMap.CodeMap])
+	{
+		/* TODO serialization */
+	}
 	object Parser {
 		def fromFile(fileName:String) = {
+			import VLQCodeMap.CodeMap
 			val plain_text = scala.io.Source.fromFile(fileName).getLines.reduceLeft(_+_)
-			val json_object = JSON.parseFull(plain_text)
-			System.out.println(json_object)
-			0
+			val obj = (JSON.parseFull(plain_text) match {
+				case Some(what:Map[_,_]) => what
+				case None       => Map[String,Any]()
+			}).asInstanceOf[Map[String,Any]]
+			val version = obj("version").asInstanceOf[Double]
+			val mapstr  = obj("mappings").asInstanceOf[String]
+			val mappings       = VLQCodeMap.parse(mapstr + ";").toList.filter(_.isInstanceOf[CodeMap])
+			SourceMapFile(version.toInt,
+			              obj.get("file").asInstanceOf[Option[String]],
+			              obj.get("sources").asInstanceOf[Option[List[String]]],
+			              obj.get("name").asInstanceOf[Option[List[String]]],
+			              mappings map (_.asInstanceOf[CodeMap]))
 		}
 	}
 }
