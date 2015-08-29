@@ -1,6 +1,9 @@
 import scala.language.postfixOps
 import scala.language.implicitConversions
 import scala.util.parsing.json.JSON
+import scala.math.max
+
+import org.mozilla.javascript.ScriptRuntime
 
 package com.github._38.radiation.codemap {
 	/** Parse the VLQ Code Maps
@@ -9,11 +12,42 @@ package com.github._38.radiation.codemap {
 	object VLQCodeMap {
 		class InvalidVLQException(val message:String) extends Exception { override def toString = message;}
 		trait Token;
-		case class Position(val lineNum:Int, val lineOfs:Int);
+		case class Position(val lineNum:Int, val lineOfs:Int) {
+            def -(that:Position) = Position(this.lineNum - that.lineNum, this.lineOfs - that.lineOfs)
+        }
 		case class  Num(val value:Int) extends Token;
 		case object MSep extends Token;
 		case object LSep extends Token;
-		case class  CodeMap(val srcId:Int, val symbolId:Int, val genPos:Position, val orgPos:Position) extends Token;
+		case class  CodeMap(val srcId:Int, val symbolId:Int, val genPos:Position, val orgPos:Position) extends Token with Ordered[CodeMap] {
+            private def _get(idx:Int) = idx match {
+                case 0 => Some(genPos.lineNum)
+                case 1 => Some(genPos.lineOfs)
+                case 2 => Some(srcId)
+                case 3 => Some(orgPos.lineNum)
+                case 4 => Some(orgPos.lineOfs)
+                case 5 => Some(symbolId)
+                case _ => None
+            }
+            private def _compareImpl(that:CodeMap, how:Int):Int = (this _get how, that _get how) match {
+                case (Some(a), Some(b)) if a == b => _compareImpl(that, how + 1)
+                case (Some(a), Some(b)) => a - b
+                case (None   , None)    => 0
+            }
+            def compare(that: CodeMap) = _compareImpl(that, 0)
+            def -(that:CodeMap) = CodeMap(srcId - that.srcId, symbolId - that.symbolId, genPos - that.genPos, orgPos - that.orgPos)
+            private def _toVLQ(fid:Int = 1):String = _get(fid) match {
+                case Some(x) => {
+                    val tail = _toVLQ(fid + 1)
+                    if(tail == "" && x == 0) "" else valueToVLQ(x) + tail
+                }
+                case None    => ""
+            }
+            def toVLQ = {
+                val result = _toVLQ()
+                result + "A" * max(4 - result.length, 0)
+            }
+            def NL = CodeMap(srcId, symbolId, Position(genPos.lineNum + 1, 0), orgPos) 
+        }
 		case class _VLQParserState(val s:Stream[Char], val e:Int, val v:Int);
 		/** The internal code map item parser state
 		 *  @note  all the values in this state are absolute value
@@ -52,22 +86,18 @@ package com.github._38.radiation.codemap {
 			case Stream.Empty => Stream.Empty
 		}
 		def _nextStream(status:_ItemParserState, rem:Stream[Token], genColumn:Int = 0, srcId:Int = 0, orgLine:Int = 0, orgColumn:Int = 0, symId:Int = 0) = {
-			val newfileno = srcId + status.srcId
-			val newgline  = status.orgLine
-			val newgcol   = orgColumn + status.orgColumn
-			val newsline  = orgLine + status.orgLine
-			val newscol   = orgColumn  + status.orgColumn
-			val newname   = symId + status.symbolId
-			val next = CodeMap(newfileno, newname, Position(newgline, newgcol), Position(newsline, newscol))
+			val next_srcId     = srcId + status.srcId
+			val next_genLine   = status.genLine
+			val next_genColumn = genColumn + status.genColumn
+			val next_srcLine   = orgLine + status.orgLine
+			val next_srcColumn = orgColumn  + status.orgColumn
+			val next_name      = symId + status.symbolId
+			val next = CodeMap(next_srcId, next_name, Position(next_genLine, next_genColumn), Position(next_srcLine, next_srcColumn))
 			next #:: _parseItem(rem, next)
 		}
 		def _parseItem(s:Stream[Token], state:_ItemParserState = _ItemParserState(0,0,0,0,0,0)):Stream[Token] = s match {
 			case Num(genCol) #:: (rem @ (LSep | MSep) #::_) =>
 			    _nextStream(state, rem, genCol)
-			case Num(genCol) #:: Num(srcId) #:: (rem @ (LSep | MSep) #:: _)=>
-			    _nextStream(state, rem, genCol, srcId)
-			case Num(genCol) #:: Num(srcId) #:: Num(orgLine) #:: (rem @ (LSep | MSep) #:: _)=>
-			    _nextStream(state, rem, genCol, srcId, orgLine)
 			case Num(genCol) #:: Num(srcId) #:: Num(orgLine) #:: Num(orgCol) #:: (rem @ (LSep | MSep) #:: _)=>
 			    _nextStream(state, rem, genCol, srcId, orgLine, orgCol)
 			case Num(genCol) #:: Num(srcId) #:: Num(orgLine) #:: Num(orgCol) #:: Num(symId) #:: (rem @ (LSep | MSep) #:: _) =>
@@ -85,7 +115,47 @@ package com.github._38.radiation.codemap {
 	                         symbols:Option[List[String]],
 	                         mappings:List[VLQCodeMap.CodeMap])
 	{
-		/* TODO serialization */
+        import VLQCodeMap.{CodeMap, Position}
+        private def _opt(name:String, what:Option[String]) = what match {
+            case Some(what) => List("\"%s\":\"%s\"".format(ScriptRuntime.escapeString(name, '"'), ScriptRuntime.escapeString(what, '"')))
+            case None       => List() 
+        }
+        private def _optl(name:String, what:Option[List[String]]) = what match {
+            case Some(what) => List("\"%s\":%s".format(ScriptRuntime.escapeString(name, '"'),
+                                                       "[" + (what map ("\"" + ScriptRuntime.escapeString(_, '"') + "\"")).mkString(",") + "]"))
+            case None      => List()
+        }
+        private def _encodeMapping(m:List[CodeMap]) = {
+            val grouped = m.groupBy(_.genPos.lineNum);
+            val lines   = (0 to grouped.keySet.max).map(x => grouped get x match {
+                case Some(mappings) => mappings
+                case None           => List()
+            }).toList
+            def _encodeLine(line:List[CodeMap], last:CodeMap):(List[String], CodeMap) = line match {
+                case x :: xs => {
+                    val (tail, lst) = _encodeLine(xs, x)
+                    ((x - last).toVLQ ::  tail, lst)
+                }
+                case _       => (List(), last)
+            }
+            def _encodeLines(l:List[List[CodeMap]], last:CodeMap):String = l match {
+                case x :: xs => {
+                    val (line, lst) = _encodeLine(x, last)
+                    line.mkString(",")+ ";" + _encodeLines(xs, lst NL)
+                }
+                case _      => ""
+            }
+            _encodeLines(lines, CodeMap(0,0,Position(0,0), Position(0,0)))
+        }
+        def toVLQMap = {
+            val props = List() ++ 
+                        List("\"version\":" + version) ++
+                        _opt("file", generated) ++
+                        _optl("sources", sources) ++
+                        _optl("names", symbols) ++ 
+                        List("\"%s\"".format(_encodeMapping(mappings)))
+           "{%s}".format(props mkString ",")
+        }
 	}
 	object Parser {
 		def fromFile(fileName:String) = {
@@ -93,7 +163,7 @@ package com.github._38.radiation.codemap {
 			val plain_text = scala.io.Source.fromFile(fileName).getLines.reduceLeft(_+_)
 			val obj = (JSON.parseFull(plain_text) match {
 				case Some(what:Map[_,_]) => what
-				case None       => Map[String,Any]()
+				case _                   => Map[String,Any]()
 			}).asInstanceOf[Map[String,Any]]
 			val version = obj("version").asInstanceOf[Double]
 			val mapstr  = obj("mappings").asInstanceOf[String]
@@ -101,8 +171,8 @@ package com.github._38.radiation.codemap {
 			SourceMapFile(version.toInt,
 			              obj.get("file").asInstanceOf[Option[String]],
 			              obj.get("sources").asInstanceOf[Option[List[String]]],
-			              obj.get("name").asInstanceOf[Option[List[String]]],
-			              mappings map (_.asInstanceOf[CodeMap]))
+			              obj.get("names").asInstanceOf[Option[List[String]]],
+			              mappings.map(_.asInstanceOf[CodeMap]))
 		}
 	}
 }
