@@ -23,7 +23,7 @@ package com.github._38.radiation.pattern {
 	 *  @param  node
 	 *  @param  offset the offset in the target code
 	 **/
-	case class Info(node: Node, offset:Int){  /* offset against the begning of this pattern */
+	case class Info(val node: Node, val offset:Int){  /* offset against the begning of this pattern */
 		def +(base:Int) = Info(node, offset + base)
 	}
 	

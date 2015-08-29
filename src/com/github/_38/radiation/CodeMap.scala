@@ -65,7 +65,7 @@ package com.github._38.radiation.codemap {
 			val CodeMap(fileno, name, Position(gline, gcol), Position(sline, scol)) = map
 			_ItemParserState(fileno, gline, gcol, sline, scol, name)
 		}
-		lazy val charSet = ('A' to 'Z') ++ ('a' to 'z') ++ Seq('+', '/')
+		lazy val charSet = ('A' to 'Z') ++ ('a' to 'z') ++ ('0' to '9') ++ Seq('+', '/')
 		lazy val termVal = ((0 to 31) zip charSet) toMap
 		lazy val initVal = ((0 to 31) zip (charSet drop 32)) toMap
 		lazy val termChar = termVal map (_ swap);
@@ -128,15 +128,17 @@ package com.github._38.radiation.codemap {
 		private def _encodeMapping(m:List[CodeMap]) = {
 			val grouped = m.groupBy(_.genPos.lineNum);
 			val lines   = (0 to grouped.keySet.max).map(x => grouped get x match {
-				case Some(mappings) => mappings
+				case Some(mappings) => mappings.sorted
 				case None           => List()
 			}).toList
-			def _encodeLine(line:List[CodeMap], last:CodeMap):(List[String], CodeMap) = line match {
-				case x :: xs => {
-					val (tail, lst) = _encodeLine(xs, x)
-					((x - last).toVLQ ::  tail, lst)
+			def _encodeLine(line:List[CodeMap], last:CodeMap):(List[String], CodeMap) = {
+			    var lst = last
+			    var ret = List[String]()
+			    for(x <- line) {
+				    ret = ret :+ (x - lst).toVLQ
+				    lst = x
 				}
-				case _       => (List(), last)
+				(ret, lst)
 			}
 			def _encodeLines(l:List[List[CodeMap]], last:CodeMap):String = l match {
 				case x :: xs => {
@@ -153,7 +155,7 @@ package com.github._38.radiation.codemap {
 			            _opt("file", generated) ++
 			            _optl("sources", sources) ++
 			            _optl("names", symbols) ++
-			            List("\"%s\"".format(_encodeMapping(mappings)))
+			            List("\"mappings\":\"%s\"".format(_encodeMapping(mappings)))
 			"{%s}".format(props mkString ",")
 		}
 	}
@@ -173,6 +175,27 @@ package com.github._38.radiation.codemap {
 			              obj.get("sources").asInstanceOf[Option[List[String]]],
 			              obj.get("names").asInstanceOf[Option[List[String]]],
 			              mappings.map(_.asInstanceOf[CodeMap]))
+		}
+	}
+	object Generator {
+		import com.github._38.radiation.ast.{Node, Location}
+		import VLQCodeMap.{CodeMap, Position}
+		val VERSION = 3
+		private def _getMappings(srcIdx:Int, offset:Int, tree:Node):Set[CodeMap] = {
+			val info = tree targetCodeInfo
+			val thismap = (Set[CodeMap]() /: info)((x,y) => y.node.location match {
+				case Some(Location(l,c))   =>  x + CodeMap(srcIdx, 0, Position(0, offset + y.offset), Position(l,c))
+				case None                  =>  x
+			})
+			(thismap /: info)((x,y) => x ++ _getMappings(srcIdx, offset + y.offset, y.node))
+		}
+		def fromAST(targetFile:String, sourceFile:String, tree:Node):String = {
+			val mappings = _getMappings(0, 0, tree).toList
+			SourceMapFile(VERSION, 
+			              Some(targetFile),
+			              Some(List(sourceFile)),
+			              None,
+			              mappings).toVLQMap
 		}
 	}
 }

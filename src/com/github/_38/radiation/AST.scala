@@ -43,12 +43,16 @@ package com.github._38.radiation.ast {
 		 *  @return the result ast
 		 */
 		 def fromFile(path:String):Node = {
+			 import scala.io.Source
+			 import java.io.BufferedReader
+			 val filecontent = Source.fromFile(path).getLines.toList
+			 val lines = (List(0) /: filecontent.map(_.length).toList)((x,y) => x :+ (x.last + y + "\n".length))
 			 val prev_postConversion = Node.postNodeConvert
 			 Node.postNodeConvert = ((n:Node) => {
-				 n(Location(0, Node.currentPosition))
+				 n(Location(0, Node.currentPosition).normalize(lines))
 				 n
 			 })
-			 val result = (new Parser).parse(new FileReader(path), path, 0).AST
+			 val result = (new Parser).parse(filecontent mkString "\n", path, 0).AST
 			 Node.postNodeConvert = prev_postConversion
 			 result
 		 }
@@ -69,10 +73,10 @@ package com.github._38.radiation.ast {
 			var (l,r) = (0, lines.size - line)
 			while(r - l > 1) {
 				val m = (l + r) / 2
-				if(lines(m) - base <= offset) l = m
+				if(lines(m + line) - base <= offset) l = m
 				else r = m
 			}
-			new Location(l + line, column + base - lines(l))
+			Location(l + line, column + base - lines(l))
 		}
 	}
 	
@@ -148,12 +152,12 @@ package com.github._38.radiation.ast {
 					case List()    => List()
 				}
 				val childRes = cargs map ((x:AnyRef) => (x match {
-					case list:List[Node] => {
+					case list:List[_] => {
 						val toProcess = transform(Begin(this)) match {
 							case Patch(begin, what, howmany) => list.patch(begin, what, howmany)
 							case _                           => list
 						};
-						val processed = processList(list);
+						val processed = processList(list.asInstanceOf[List[Node]]);
 						transform(End(this)) match {
 							case Patch(begin, what, howmany) => processed.patch(begin, what, howmany)
 							case _                           => processed
@@ -358,8 +362,8 @@ package com.github._38.radiation.ast {
 		}
 		/** Convert a rhino ast to the Radiation one, introducing side effect ! */
 		def rhinoAstToInternal(node:RhinoAST.AstNode) = {
-			val tmp = _rhinoAstToInternalImpl(node)
 			currentPosition = currentPosition + node.getPosition
+			val tmp = _rhinoAstToInternalImpl(node)
 			val result = postNodeConvert(tmp)
 			currentPosition = currentPosition - node.getPosition
 			result
