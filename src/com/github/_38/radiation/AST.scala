@@ -241,17 +241,17 @@ package com.github._38.radiation.ast {
 		/** Convert the Rhino Opcode to Operator in Plain text
 		 *  @param opcode the Rhino opcode
 		 */
-		private def _operatorString(opcode:Int) = 
-            (if(opcode == RhinoToken.IN || 
-                opcode == RhinoToken.INSTANCEOF) " " 
-             else "") +
+		private def _operatorString(opcode:Int) =
+		    (if(opcode == RhinoToken.IN ||
+		        opcode == RhinoToken.INSTANCEOF) " "
+		     else "") +
 		    (RhinoAST.AstNode operatorToString opcode) +
-		    (if(opcode == RhinoToken.TYPEOF || 
-                opcode == RhinoToken.DELPROP || 
-                opcode == RhinoToken.VOID || 
-                opcode == RhinoToken.IN || 
-                opcode == RhinoToken.INSTANCEOF) " " 
-             else "")
+		    (if(opcode == RhinoToken.TYPEOF ||
+		        opcode == RhinoToken.DELPROP ||
+		        opcode == RhinoToken.VOID ||
+		        opcode == RhinoToken.IN ||
+		        opcode == RhinoToken.INSTANCEOF) " "
+		     else "")
 		/** Convert the Rhino AST Node to helper class */
 		implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
 		/** Convert Java list to Helper class */
@@ -283,12 +283,12 @@ package com.github._38.radiation.ast {
 			                                             n.getBody.required[Statement])
 			case n:RhinoAST.ForInLoop             => {
 				(n isForEach) match {
-					case (false)    => ForIn  (n.getIterator.required[ForLoopInitializer], 
-                                               n.getIteratedObject.required[Expression], 
-                                               n.getBody.required[Statement])
-					case (true)     => ForEach(n.getIterator.required[ForLoopInitializer], 
-                                               n.getIteratedObject.required[Expression], 
-                                               n.getBody.required[Statement])
+					case (false)    => ForIn  (n.getIterator.required[ForLoopInitializer],
+					                           n.getIteratedObject.required[Expression],
+					                           n.getBody.required[Statement])
+					case (true)     => ForEach(n.getIterator.required[ForLoopInitializer],
+					                           n.getIteratedObject.required[Expression],
+					                           n.getBody.required[Statement])
 				}
 			}
 			case n:RhinoAST.FunctionCall          => Call(n.getTarget.required[Expression], n.getArguments.list[Expression])

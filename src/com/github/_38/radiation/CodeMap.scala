@@ -131,11 +131,11 @@ package com.github._38.radiation.codemap {
 				case None           => List()
 			}).toList
 			def _encodeLine(line:List[CodeMap], last:CodeMap):(List[String], CodeMap) = {
-			    var lst = last
-			    var ret = List[String]()
-			    for(x <- line) {
-				    ret = ret :+ (x - lst).toVLQ
-				    lst = x
+				var lst = last
+				var ret = List[String]()
+				for(x <- line) {
+					ret = ret :+ (x - lst).toVLQ
+					lst = x
 				}
 				(ret, lst)
 			}
@@ -190,7 +190,7 @@ package com.github._38.radiation.codemap {
 		}
 		def fromAST(targetFile:String, sourceFile:String, tree:Node):String = {
 			val mappings = _getMappings(0, 0, tree).toList
-			SourceMapFile(VERSION, 
+			SourceMapFile(VERSION,
 			              Some(targetFile),
 			              Some(List(sourceFile)),
 			              None,

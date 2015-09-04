@@ -9,7 +9,7 @@ package com.github._38.radiation.source {
 		/** normalize means figure out the undefined line number, and make sure line offset
 		 *  is in the range of the line
 		 *  @param lines the list of offset of the beginning of each line
-         *  @return the newly created location
+		 *  @return the newly created location
 		 */
 		def normalize(lines:List[Int]) = {
 			val base = lines(line)
@@ -22,11 +22,11 @@ package com.github._38.radiation.source {
 			}
 			Location(l + line, column + base - lines(l))
 		}
-        /** Get the ralative diff of two locations
-         *  @param that the second operand
-         *  @return the newly created location
-         */
-        def -(that:Location) = Location(this.line - that.line, this.column - that.column)
+		/** Get the ralative diff of two locations
+		 *  @param that the second operand
+		 *  @return the newly created location
+		 */
+		def -(that:Location) = Location(this.line - that.line, this.column - that.column)
 	}
 	
 }
