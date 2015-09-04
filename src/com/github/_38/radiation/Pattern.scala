@@ -17,7 +17,7 @@ package com.github._38.radiation.pattern {
 		 *  @return the pattern
 		 **/
 		def mkList(l:List[Node], s:String = "") = new NodeList(l, s)
-
+		
 	}
 	
 	/** Carries the code info
@@ -54,9 +54,9 @@ package com.github._38.radiation.pattern {
 	}
 	/** Pattern related utils */
 	object Pattern {
-		/** We need add a white space between two identifers */ 
+		/** We need add a white space between two identifers */
 		val idEndings = (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_', '$')).toSet
-		/** Combine a list of string 
+		/** Combine a list of string
 		 *  @param strs the strings to combine
 		 *  @param sep  the seperator
 		 */
