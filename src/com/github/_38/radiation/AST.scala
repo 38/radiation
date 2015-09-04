@@ -3,6 +3,7 @@ import scala.language.implicitConversions
 
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken, ScriptRuntime}
 import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
+import com.github._38.radiation.source.{Location}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
@@ -57,30 +58,6 @@ package com.github._38.radiation.ast {
 			 result
 		 }
 	}
-	
-	/** Describe a Location in a source code
-	 *  @param line Line number in the source code
-	 *  @param column the column number, the offset can be out of range, so we need use normalize function
-	 */
-	case class Location(val line:Int, val column:Int) {
-		/** normalize means figure out the undefined line number, and make sure line offset
-		 *  is in the range of the line
-		 *  @param lines the list of offset of the beginning of each line
-		 */
-		def normalize(lines:List[Int]) = {
-			val base = lines(line)
-			val offset = column
-			var (l,r) = (0, lines.size - line)
-			while(r - l > 1) {
-				val m = (l + r) / 2
-				if(lines(m + line) - base <= offset) l = m
-				else r = m
-			}
-			Location(l + line, column + base - lines(l))
-		}
-	}
-	
-	
 	
 	/** The base class for all AST Nodes */
 	abstract class Node {
@@ -264,9 +241,17 @@ package com.github._38.radiation.ast {
 		/** Convert the Rhino Opcode to Operator in Plain text
 		 *  @param opcode the Rhino opcode
 		 */
-		private def _operatorString(opcode:Int) = (if(opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "") +
-		   (RhinoAST.AstNode operatorToString opcode) +
-		   (if(opcode == RhinoToken.TYPEOF || opcode == RhinoToken.DELPROP || opcode == RhinoToken.VOID || opcode == RhinoToken.IN || opcode == RhinoToken.INSTANCEOF) " " else "")
+		private def _operatorString(opcode:Int) = 
+            (if(opcode == RhinoToken.IN || 
+                opcode == RhinoToken.INSTANCEOF) " " 
+             else "") +
+		    (RhinoAST.AstNode operatorToString opcode) +
+		    (if(opcode == RhinoToken.TYPEOF || 
+                opcode == RhinoToken.DELPROP || 
+                opcode == RhinoToken.VOID || 
+                opcode == RhinoToken.IN || 
+                opcode == RhinoToken.INSTANCEOF) " " 
+             else "")
 		/** Convert the Rhino AST Node to helper class */
 		implicit def toHelper(from:RhinoAST.AstNode):RhinoASTHelper = new RhinoASTHelper(from)
 		/** Convert Java list to Helper class */
@@ -298,8 +283,12 @@ package com.github._38.radiation.ast {
 			                                             n.getBody.required[Statement])
 			case n:RhinoAST.ForInLoop             => {
 				(n isForEach) match {
-					case (false)    => ForIn  (n.getIterator.required[ForLoopInitializer], n.getIteratedObject.required[Expression], n.getBody.required[Statement])
-					case (true)     => ForEach(n.getIterator.required[ForLoopInitializer], n.getIteratedObject.required[Expression], n.getBody.required[Statement])
+					case (false)    => ForIn  (n.getIterator.required[ForLoopInitializer], 
+                                               n.getIteratedObject.required[Expression], 
+                                               n.getBody.required[Statement])
+					case (true)     => ForEach(n.getIterator.required[ForLoopInitializer], 
+                                               n.getIteratedObject.required[Expression], 
+                                               n.getBody.required[Statement])
 				}
 			}
 			case n:RhinoAST.FunctionCall          => Call(n.getTarget.required[Expression], n.getArguments.list[Expression])
