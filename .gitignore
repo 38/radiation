@@ -1,6 +1,8 @@
 project/project/
 project/target/
 target/
+libs/
 
 *.swp
 *.swo
+*.swn

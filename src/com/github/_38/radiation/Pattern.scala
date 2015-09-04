@@ -17,6 +17,7 @@ package com.github._38.radiation.pattern {
 		 *  @return the pattern
 		 **/
 		def mkList(l:List[Node], s:String = "") = new NodeList(l, s)
+
 	}
 	
 	/** Carries the code info
@@ -51,6 +52,25 @@ package com.github._38.radiation.pattern {
 			case (l:Primitive, r) => (l:Compound) -- r
 		}
 	}
+	/** Pattern related utils */
+	object Pattern {
+		/** We need add a white space between two identifers */ 
+		val idEndings = (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_', '$')).toSet
+		/** Combine a list of string 
+		 *  @param strs the strings to combine
+		 *  @param sep  the seperator
+		 */
+		def combine(strs:List[String], sep:String) = {
+			var result = ""
+			var first = true
+			for(str <- strs) if(str != "") {
+				if(!first) result = result + sep
+				result = result + (if(!first && (idEndings contains result.last) && (idEndings contains str.head)) " " + str else str)
+				first = false
+			}
+			result
+		}
+	}
 	/** The pattern that is not Compound */
 	trait Primitive extends Pattern{
 		/** Make a Primitive a List of one node or List of nothing */
@@ -74,7 +94,7 @@ package com.github._38.radiation.pattern {
 	}
 	/** Represents a list of node */
 	class NodeList(nodes:List[Node], seperator:String) extends Edge {
-		def render = nodes map (_ targetCode) mkString seperator
+		def render = Pattern.combine(nodes map (_ targetCode), seperator)
 		def _scan(todo:List[Node], offset:Int):List[Info] = todo match {
 			case x :: xs => Info(x, offset) :: _scan(xs, (x length) + offset + (seperator length))
 			case _ => List()
@@ -90,7 +110,7 @@ package com.github._38.radiation.pattern {
 	}
 	/** Represents the concats of patterns */
 	class Compound(val values:List[Primitive]) extends Pattern {
-		def render = values map (_ render) mkString
+		def render = Pattern.combine(values map (_ render), "")
 		def _scan(xs:List[Primitive], base:Int):List[Info] = xs match {
 			case x :: xs => x.info.map(_ + base) ++ _scan(xs, base + x.length)
 			case _ => List()

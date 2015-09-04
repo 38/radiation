@@ -43,20 +43,7 @@ package com.github._38.radiation.ast {
 		 *  @param  path the file path
 		 *  @return the result ast
 		 */
-		 def fromFile(path:String):Node = {
-			 import scala.io.Source
-			 import java.io.BufferedReader
-			 val filecontent = Source.fromFile(path).getLines.toList
-			 val lines = (List(0) /: filecontent.map(_.length).toList)((x,y) => x :+ (x.last + y + "\n".length))
-			 val prev_postConversion = Node.postNodeConvert
-			 Node.postNodeConvert = ((n:Node) => {
-				 n(Location(0, Node.currentPosition).normalize(lines))
-				 n
-			 })
-			 val result = (new Parser).parse(filecontent mkString "\n", path, 0).AST
-			 Node.postNodeConvert = prev_postConversion
-			 result
-		 }
+		 def fromFile(path:String):Node = (new Parser).parse(new FileReader(path), path, 0).AST
 	}
 	
 	/** The base class for all AST Nodes */
@@ -173,10 +160,6 @@ package com.github._38.radiation.ast {
 		 *  @note Not thread-safe, but don't care for now
 		 */
 		val stack:Stack[Node] = Stack()
-		/** The offset of current node, used when parse a file input, evil side-effect :( */
-		var currentPosition = 0
-		/** The callback function after a node is converted, introducing evil side-effect :( */
-		var postNodeConvert = ((n:Node) => n)
 		
 		/** We have much more strict syntax checking than rhino, might rise SyntaxError
 		 *  Even if the rhino parser accepted the program
@@ -257,7 +240,7 @@ package com.github._38.radiation.ast {
 		/** Convert Java list to Helper class */
 		implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 		/** Do actual convert from the Rhino AST to Radiation AST */
-		def _rhinoAstToInternalImpl(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
+		def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
 			case n:RhinoAST.ObjectProperty        => :::(n.getLeft.required[Expression], n.getRight.required[Expression])
 			case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getArguments.list[Expression])
 			case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[Id])
@@ -347,15 +330,7 @@ package com.github._38.radiation.ast {
 				}
 				if(n isStatement) DefineStmt(how, n.getVariables.list[VarDecl]) else DefineInit(how, n.getVariables.list[VarDecl])
 			}
-			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript5 do not have block scopes, only scope is function scope */
-		}
-		/** Convert a rhino ast to the Radiation one, introducing side effect ! */
-		def rhinoAstToInternal(node:RhinoAST.AstNode) = {
-			currentPosition = currentPosition + node.getPosition
-			val tmp = _rhinoAstToInternalImpl(node)
-			val result = postNodeConvert(tmp)
-			currentPosition = currentPosition - node.getPosition
-			result
+			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript 5 do not have block scopes, only scope is function scope */
 		}
 	}
 	
@@ -401,8 +376,8 @@ package com.github._38.radiation.ast {
 	/** Any function declerations */
 	abstract class Function(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends LocalScope {
 		val localSymbols = locals
-		val shared = " " -- (name match {
-			case Some(name) => name
+		val shared = (name match {
+			case Some(name) => name:Pattern
 			case None       => Empty()
 		}) -- "(" -- mkList(args, ",") -- ")" -- body
 	}
@@ -419,25 +394,25 @@ package com.github._38.radiation.ast {
 	}
 	/** Break statement */
 	case object Break extends ControlFlow {
-		val pattern = "break;":Pattern
+		val pattern = "break" -- ";"
 		val cargs   = Seq()
 	}
 	/** A catch clause catch(e) { .... } */
 	case class Catch(variable:Id, cond:Option[Expression], body:Block) extends Node {
-		val pattern = "catch(" -- variable -- (cond match {
-			case Some(cond) => " if " -- cond
+		val pattern = "catch" -- "(" -- variable -- (cond match {
+			case Some(cond) => "if" -- cond
 			case None => Empty()
 		}) -- ")" -- body
 		val cargs   = Seq(variable, cond, body)
 	}
 	/** continue statement */
 	case object Continue extends ControlFlow {
-		val pattern = "continue;":Pattern;
+		val pattern = "continue" -- ";"
 		val cargs   = Seq()
 	}
 	/** do { ... } while */
 	case class DoWhile(body:Statement, cond:Expression) extends Loop {
-		val pattern = "do " -- body -- "while(" -- cond -- ");"
+		val pattern = "do" -- body -- "while" -- "(" -- cond -- ");"
 		val cargs   = Seq(body, cond)
 	}
 	/** element get [...] */
@@ -458,7 +433,7 @@ package com.github._38.radiation.ast {
 	/** Try statement */
 	case class Try(tryBlock:Block, catchBlocks:List[Catch], finallyBlock:Option[Block]) extends Statement {
 		val pattern = "try" -- tryBlock -- mkList(catchBlocks) -- (finallyBlock match {
-			case Some(finallyBlock) => "finally " -- finallyBlock
+			case Some(finallyBlock) => "finally" -- finallyBlock
 			case None               => Empty()
 		  })
 		val cargs   = Seq(tryBlock, catchBlocks, finallyBlock)
@@ -485,17 +460,17 @@ package com.github._38.radiation.ast {
 	}
 	/** for(x in y) { ... } loop */
 	case class ForIn(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
-		val pattern = "for(" -- iterator -- " in " -- iterationObject -- ")" -- body
+		val pattern = "for" -- "(" -- iterator -- " in " -- iterationObject -- ")" -- body
 		val cargs   = Seq(iterator, iterationObject, body)
 	}
 	/** for each(x in y) loop */
 	case class ForEach(iterator:ForLoopInitializer, iterationObject:Expression, body:Statement) extends ForLoop {
-		val pattern = "for each(" -- iterator -- " in " -- iterationObject -- ")" -- body
+		val pattern = "for" --  "each" -- "(" -- iterator -- "in" -- iterationObject -- ")" -- body
 		val cargs   = Seq(iterator, iterationObject, body)
 	}
 	/** for(i = 0; i &lt; j; i ++) loop */
 	case class For(initial:ForLoopInitializer, cond:Expression, inc:Expression, body:Statement) extends ForLoop {
-		val pattern = "for(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
+		val pattern = "for" -- "(" -- initial -- ";" -- cond -- ";" -- inc -- ")" -- body
 		val cargs   = Seq(initial, cond, inc, body)
 	}
 	/** A function invocation */
@@ -516,9 +491,9 @@ package com.github._38.radiation.ast {
 	}
 	/** An if(cond) then(); else else(); statement */
 	case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {
-		val pattern = "if(" -- cond -- ")" -- thenClause -- (elseCluase match {
+		val pattern = "if" -- "(" -- cond -- ")" -- thenClause -- (elseCluase match {
 			case None => Empty()
-			case Some(elseCluase) => " else " -- elseCluase
+			case Some(elseCluase) => "else" -- elseCluase
 		})
 		val cargs   = Seq(cond, thenClause, elseCluase)
 	}
@@ -549,7 +524,7 @@ package com.github._38.radiation.ast {
 	}
 	/** Keyword debugger */
 	case object Debugger extends Statement {
-		val pattern = "debugger;":Pattern
+		val pattern = "debugger" -- ";"
 		val cargs   = Seq()
 	}
 	/** root of AST */
@@ -565,7 +540,7 @@ package com.github._38.radiation.ast {
 	}
 	/** A new expression */
 	case class New(target:Expression, args:List[Expression]) extends Expression{ /* initializer is not standard syntax seems not useful */
-		val pattern = "new " -- target -- " " -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
+		val pattern = "new " -- target -- (if(args.length > 0) "(" -- mkList(args, ",") -- ")" else Empty())
 		val cargs   = Seq(target, args)
 	}
 	/** A key value pair in {key:vlaue} literal */
@@ -590,21 +565,21 @@ package com.github._38.radiation.ast {
 	}
 	/** Regular expression literal */
 	case class Reg(expr:String, flg:Option[String]) extends Constant {
-		val pattern = Empty() -- "/" -- expr -- "/" -- (flg match {
+		val pattern = ("/" + expr + "/" + (flg match {
 			case Some(flg) => flg
-			case None      => Empty()
-		})
+			case None      => ""
+		})):Pattern
 		val cargs   = Seq(expr, flg)
 	}
 	/** String literal */
 	case class Str(quote:String, value:String) extends Constant {
-		val pattern = Empty() -- quote -- ScriptRuntime.escapeString(value, quote(0)) -- quote
+		val pattern = (quote + ScriptRuntime.escapeString(value, quote(0)) + quote):Pattern
 		val cargs   = Seq(quote, value)
 	}
 	/** Return statement */
 	case class Return(what:Option[Expression]) extends ControlFlow{
 		val pattern = "return" -- (what match {
-			case Some(what)  =>  " " -- what
+			case Some(what)  =>  what
 			case None        =>  Empty()
 		}) -- ";"
 		val cargs   = Seq(what)
@@ -612,19 +587,19 @@ package com.github._38.radiation.ast {
 	/** a switch case */
 	case class Case(test:Option[Expression], statements:List[Statement]) extends Node {
 		val pattern = test match {
-			case Some(test)  => "case " -- test -- ":" -- mkList(statements, "")
-			case None        => "default:" -- mkList(statements, "")
+			case Some(test)  => "case" -- test -- ":" -- mkList(statements, "")
+			case None        => "default" -- ":" -- mkList(statements, "")
 		}
 		val cargs   = Seq(test, statements)
 	}
 	/** Switch statement */
 	case class Switch(test:Expression, cases:List[Case]) extends ControlFlow {
-		val pattern = "switch(" -- test -- "){" -- mkList(cases, " ") -- "}"
+		val pattern = "switch" -- "(" -- test -- ")" -- "{" -- mkList(cases, "") -- "}"
 		val cargs   = Seq(test, cases)
 	}
 	/** throw statement */
 	case class Throw(expr:Expression) extends ControlFlow {
-		val pattern = "throw " -- expr -- ";"
+		val pattern = "throw" -- expr -- ";"
 		val cargs   = Seq(expr)
 	}
 	/** Prefix operators */
@@ -647,17 +622,17 @@ package com.github._38.radiation.ast {
 	}
 	/** Var Decl statement */
 	case class DefineStmt(how:String, what:List[VarDecl]) extends Statement {
-		val pattern = Empty() -- how -- " " -- mkList(what, ",") -- ";"
+		val pattern = Empty() -- how -- mkList(what, ",") -- ";"
 		val cargs   = Seq(how, what)
 	}
 	/** For(var xxx = 3;;) */
 	case class DefineInit(how:String, what:List[VarDecl]) extends ForLoopInitializer {
-		val pattern = Empty() -- how -- " " -- mkList(what, ",")
+		val pattern = Empty() -- how -- mkList(what, ",")
 		val cargs   = Seq(how, what)
 	}
 	/* while(...) xxxxx loop */
 	case class While(cond:Expression, body:Statement) extends Loop {
-		val pattern = "while(" -- cond -- ")" -- body
+		val pattern = "while" -- "(" -- cond -- ")" -- body
 		val cargs   = Seq(cond, body)
 	}
 	/** Virtual Node, AST Traveser provide this to transformer, indicates we are about to process the node */
