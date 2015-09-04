@@ -17,7 +17,7 @@ package com.github._38.radiation {
 			val moduleClz = Class.forName("com.github._38.radiation.modules." + module + "$")
 			val moduleObj = moduleClz.getField("MODULE$").get(null).asInstanceOf[ASTModule]
 			val ast = moduleObj.run(ASTParser.fromFile(path))
-			System.out.println(Generator.fromAST("test1.js", path, ast))
+			//System.out.println(Generator.fromAST("test1.js", path, ast))
 			System.out.println(ast.targetCode)
 		}
 		def main(args:Array[String]) {
