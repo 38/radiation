@@ -1,8 +1,8 @@
 import scala.language.postfixOps
 import scala.language.implicitConversions
 
-import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken, ScriptRuntime}
-import com.github._38.radiation.pattern.{Conversions, Info, Pattern, Empty, Compound}
+import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken, ScriptRuntime, CompilerEnvirons}
+import com.github._38.radiation.pattern.{Conversions, TokenMapping, NodeInfo, Pattern, Empty, Compound}
 import com.github._38.radiation.source.{Location}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
@@ -38,7 +38,12 @@ package com.github._38.radiation.ast {
 		 *  @param program The program text
 		 *  @return The result AST Root
 		 */
-		def fromString(program:String):Node = (new Parser).parse(program, null, 0).AST
+		def fromString(program:String):Node = (new Parser({
+			val e = new CompilerEnvirons();
+			// For the generated code, simply turn off the CG mode for performance reason
+			e.setCodeGeneratorMode(false);
+			e
+		})).parse(program, "<Memory>", 0).AST
 		/** Parse a file and return AST
 		 *  @param  path the file path
 		 *  @return the result ast
@@ -52,8 +57,8 @@ package com.github._38.radiation.ast {
 		val pattern:Pattern
 		/** Constructor Args, the Arguments used to build this node */
 		val cargs:Seq[AnyRef]    /* This is used because we need to use refelection to create new object */
-		/** Source code locations, can be empty if it's a generated node */
-		var location:Option[Location] = None
+	    /** The lexer token locations */
+	    var lexerTokenList:Option[List[Location]] = None
 		/** The length of the program text of this node */
 		lazy val length:Int = pattern length
 		/** Make a new node with modifed constructor arguments
@@ -141,11 +146,16 @@ package com.github._38.radiation.ast {
 		}
 		/** Get the program text from this AST */
 		def targetCode:String = pattern render
-		/** A list contains Node to Source Code Location information */
-		def targetCodeInfo:List[Info] = pattern info
+		/** A list contains the map from the original location to location in target code location*/
+		def lexerTokenMappings:List[TokenMapping] = this.lexerTokenList match {
+			case Some(list) => pattern getMappings list
+			case None       => List()
+		}
+		def getChildren:List[NodeInfo] = pattern getChildren
 		/** Support for update the location by calling node(newloc) */
-		def apply(loc:Location) {
-			location = Some(loc)
+		def apply(tokenList:Option[List[Location]]) = {
+			lexerTokenList = tokenList 
+			this
 		}
 		/** Try to convert the node to specified type of node, None if not possible */
 		def as[T <: Node: ClassTag]:Option[T] = this match {
@@ -240,7 +250,7 @@ package com.github._38.radiation.ast {
 		/** Convert Java list to Helper class */
 		implicit def toHelper(from:java.util.List[_ <: RhinoAST.AstNode]):JavaListHelper = new JavaListHelper(from)
 		/** Do actual convert from the Rhino AST to Radiation AST */
-		def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = rhino_node match {
+		def rhinoAstToInternal(rhino_node:RhinoAST.AstNode): Node = (rhino_node match {
 			case n:RhinoAST.ObjectProperty        => :::(n.getLeft.required[Expression], n.getRight.required[Expression])
 			case n:RhinoAST.NewExpression         => New(n.getTarget.required[Expression], n.getArguments.list[Expression])
 			case n:RhinoAST.PropertyGet           => ->(n.getLeft.required[Expression], n.getRight.required[Id])
@@ -331,7 +341,10 @@ package com.github._38.radiation.ast {
 				if(n isStatement) DefineStmt(how, n.getVariables.list[VarDecl]) else DefineInit(how, n.getVariables.list[VarDecl])
 			}
 			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript 5 do not have block scopes, only scope is function scope */
-		}
+		})(if(rhino_node.getTokenList != null)
+			   Some(rhino_node.getTokenList.asScala.toList map (x => Location(x.getLineno, x.getColumn)))
+		   else
+			   None);
 	}
 	
 	/** AST node for a statement */
@@ -342,7 +355,6 @@ package com.github._38.radiation.ast {
 		def labeledPattern = if(labels.length > 0) ((new Compound(List())) /: labels)((p,s) => p -- s -- ":") -- pattern else pattern
 		override lazy val length:Int = labeledPattern length
 		override def targetCode:String = labeledPattern render
-		override def targetCodeInfo:List[Info] = labeledPattern info
 	}
 	/** AST Node that can be used in for loop initializer for(.....;;) */
 	trait ForLoopInitializer extends Node;
@@ -587,14 +599,14 @@ package com.github._38.radiation.ast {
 	/** a switch case */
 	case class Case(test:Option[Expression], statements:List[Statement]) extends Node {
 		val pattern = test match {
-			case Some(test)  => "case" -- test -- ":" -- mkList(statements, "")
-			case None        => "default" -- ":" -- mkList(statements, "")
+			case Some(test)  => "case" -- test -- ":" -- mkList(statements)
+			case None        => "default" -- ":" -- mkList(statements)
 		}
 		val cargs   = Seq(test, statements)
 	}
 	/** Switch statement */
 	case class Switch(test:Expression, cases:List[Case]) extends ControlFlow {
-		val pattern = "switch" -- "(" -- test -- ")" -- "{" -- mkList(cases, "") -- "}"
+		val pattern = "switch" -- "(" -- test -- ")" -- "{" -- mkList(cases) -- "}"
 		val cargs   = Seq(test, cases)
 	}
 	/** throw statement */

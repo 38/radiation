@@ -132,12 +132,13 @@ package com.github._38.radiation.codemap {
 			}).toList
 			def _encodeLine(line:List[CodeMap], last:CodeMap):(List[String], CodeMap) = {
 				var lst = last
-				var ret = List[String]()
+				var ret = scala.collection.mutable.ArrayBuffer[String]()
 				for(x <- line) {
-					ret = ret :+ (x - lst).toVLQ
+					ret += (x - lst).toVLQ
 					lst = x
 				}
-				(ret, lst)
+			    
+				(ret.toList, lst)
 			}
 			def _encodeLines(l:List[List[CodeMap]], last:CodeMap):String = l match {
 				case x :: xs => {
@@ -181,12 +182,10 @@ package com.github._38.radiation.codemap {
 		import VLQCodeMap.CodeMap
 		val VERSION = 3
 		private def _getMappings(srcIdx:Int, offset:Int, tree:Node):Set[CodeMap] = {
-			val info = tree targetCodeInfo
-			val thismap = (Set[CodeMap]() /: info)((x,y) => y.node.location match {
-				case Some(Location(l,c))   =>  x + CodeMap(srcIdx, 0, Location(0, offset + y.offset), Location(l,c))
-				case None                  =>  x
-			})
-			(thismap /: info)((x,y) => x ++ _getMappings(srcIdx, offset + y.offset, y.node))
+			val current  = tree.lexerTokenMappings map (x => CodeMap(srcIdx, 0, Location(0, offset + x.target), x.source))
+			val children = tree.getChildren map (x => _getMappings(srcIdx, offset + x.offset, x.node))
+			val all = current :: children
+			(Set[CodeMap]() /: all)(_ ++ _) 
 		}
 		def fromAST(targetFile:String, sourceFile:String, tree:Node):String = {
 			val mappings = _getMappings(0, 0, tree).toList
