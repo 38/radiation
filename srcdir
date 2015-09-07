@@ -1,0 +1,15 @@
+#!/bin/zsh
+SRCDIR=src/
+OUTPUT=target/src
+get_package() {
+	grep -o -E 'package ([a-zA-Z0-9_$]+.)*[a-zA-Z0-9_$]*' $2 | awk '{print "'$1'/"$2}' | sed 's/\./\//g'
+}
+for src in $(find ${SRCDIR} -name "*.scala") 
+do
+	pak=$(get_package ${OUTPUT} ${src})
+	mkdir -p ${pak}
+	if [ ! -e ${pak}/$(basename ${src}) ]
+	then
+		ln -s $(pwd)/${src} ${pak}/$(basename ${src})
+	fi
+done

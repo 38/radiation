@@ -51,7 +51,12 @@ package com.github._38.radiation.ast {
 		 def fromFile(path:String):Node = (new Parser).parse(new FileReader(path), path, 0).AST
 	}
 	
-	/** The base class for all AST Nodes */
+	/** The base class for all AST Nodes 
+	 *  @todo: 1. although one of the node children has been changed, we can not simply create a new node without any location information
+	 *            since there's other location information that needs to be preserved
+	 *         2. For the list primitive pattern, because we are able to patch it, that means we can not make the mapping for seperator stored
+	 *            in seperately, because the list order might be changed, that cause the token location meaningless
+	 */
 	abstract class Node {
 		/** Code pattern, how to convert this AST to program text */
 		val pattern:Pattern
@@ -343,8 +348,7 @@ package com.github._38.radiation.ast {
 			case n:RhinoAST.Scope                 => Block(n.list[Statement]) /* ECMAScript 5 do not have block scopes, only scope is function scope */
 		})(if(rhino_node.getTokenList != null)
 			   Some(rhino_node.getTokenList.asScala.toList map (x => Location(x.getLineno, x.getColumn)))
-		   else
-			   None);
+		   else None);
 	}
 	
 	/** AST node for a statement */
@@ -497,9 +501,13 @@ package com.github._38.radiation.ast {
 	}
 	/** A function define statement */
 	case class FuncDef(name:Option[Id], args:List[Id], body:Block, locals:Set[String]) extends Function(name, args, body, locals) with Statement {
+		name match {
+			case Some(Id(s)) => if(s == "adder") System.out.println("adder has been created!");
+			case _ => ;
+		}
 		override val pattern =  "function"-- shared -- ";"
 		val cargs   = Seq(name, args, body, locals)
-		def asExpr = FuncExp(name, args, body, locals)
+		def asExpr = FuncExp(name, args, body, locals)(lexerTokenList)
 	}
 	/** An if(cond) then(); else else(); statement */
 	case class If(cond:Expression, thenClause:Statement, elseCluase:Option[Statement]) extends ControlFlow {

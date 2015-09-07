@@ -27,9 +27,9 @@ package com.github._38.radiation.pattern {
 	 *  @param source the source file location which contains &lt;line, column, file name &gt; 
 	 *  @param target the target file location which only have an offest, because the generated code have only line
 	 **/
-	case class TokenMapping(val source:Location, val target:Int){
+	case class TokenMapping(val source:Location, val target:Int, val text:String){
 		/** The add operator adds the target location with a base offest */
-		def +(base:Int) = TokenMapping(source, target + base)
+		def +(base:Int) = TokenMapping(source, target + base, text)
 	}
 	
 	/** Carries the Node offset information in this pattern
@@ -92,6 +92,9 @@ package com.github._38.radiation.pattern {
 	}
 	/** This is actually an edge in the AST */
 	trait Edge extends Primitive;
+
+	/** Contains Lexer Token */
+	trait ContainsLexerToken  extends Primitive;
 	
 	/** Bascially Nothing here */
 	class Empty extends Pattern {
@@ -102,16 +105,16 @@ package com.github._38.radiation.pattern {
 		def apply() = singleton;
 	}
 	/** Plain text in the code */
-	class LexerToken(text:String) extends Primitive {
+	class LexerToken(text:String) extends Primitive with ContainsLexerToken{
 		def render = text;
 		override def getMappings(source:List[Location]) = source match {
-			case x :: xs => List(TokenMapping(x, 0))
+			case x :: xs => List(TokenMapping(x, 0, text))
 			case _       => List()
 		}
 		def listify = if(text == null) List() else List(this)
 	}
 	/** Represents a list of node */
-	class NodeList(nodes:List[Node], seperator:String) extends Edge {
+	class NodeList(nodes:List[Node], seperator:String) extends Edge with ContainsLexerToken {
 		def render = Pattern.combine(nodes map (_ targetCode), seperator)
 		override def getChildren = {
 			def _scan(todo:List[Node], offset:Int):List[NodeInfo] = todo match {
@@ -127,7 +130,7 @@ package com.github._38.radiation.pattern {
 				case x :: (xs @(y :: xss)) => (offset + x.length) :: _scan(xs, offset + x.length + seperator.length)
 				case _ => List()
 			}
-			(_scan(nodes, 0) zip source) map (x => TokenMapping(x._2, x._1))
+			(_scan(nodes, 0) zip source) map (x => TokenMapping(x._2, x._1, seperator))
 		}
 		
 		def listify = if(nodes == null) List() else List(this)
@@ -143,14 +146,16 @@ package com.github._38.radiation.pattern {
 		def render = Pattern.combine(values map (_ render), "")
 		override def getMappings(source:List[Location]) = { 
 			def _scan(xs:List[Primitive], source:List[Location], base:Int):List[TokenMapping] = xs match {
-				case x :: xs => {
+				case (x:ContainsLexerToken) :: xs => {
 					val head = x.getMappings(source).map(_ + base) 
 					val tail = _scan(xs, source drop head.length, base + x.length)
 					head ++ tail
 				}
+				case x :: xs => _scan(xs, source, base + x.length)
 				case _ => List()
 			}
-			_scan(values, source, 0)
+			val result = _scan(values, source, 0)
+			result
 		}
 		override def getChildren = {
 			def _scan(xs:List[Primitive], base:Int):List[NodeInfo] = xs match {
@@ -159,6 +164,7 @@ package com.github._38.radiation.pattern {
 			}
 			_scan(values, 0)
 		}
+		override def toString = "Compound" + values
 	}
 }
 
