@@ -5,7 +5,7 @@ package com.github._38.radiation.source {
 	 *  @param line Line number in the source code
 	 *  @param column the column number, the offset can be out of range, so we need use normalize function
 	 */
-	case class Location(val line:Int, val column:Int) {
+	class KnownLocation(val line:Int, val column:Int) extends Location{
 		/** normalize means figure out the undefined line number, and make sure line offset
 		 *  is in the range of the line
 		 *  @param lines the list of offset of the beginning of each line
@@ -26,7 +26,21 @@ package com.github._38.radiation.source {
 		 *  @param that the second operand
 		 *  @return the newly created location
 		 */
-		def -(that:Location) = Location(this.line - that.line, this.column - that.column)
+		def -(that:KnownLocation) = Location(this.line - that.line, this.column - that.column)
+
+		override def toString = "<" + line + ":" + column + ">"
+	}
+	trait Location;
+	object Location {
+		def apply(line:Int, column:Int) = new KnownLocation(line, column);
+		def unapply(loc:Location):Option[(Int,Int)] = loc match {
+			case k:KnownLocation => Some((k.line, k.column))
+			case _               => None
+		}
+	}
+	trait Undefined extends Location;
+	object Undefined extends Undefined{
+		override def toString = "<UDL>"
 	}
 	
 }

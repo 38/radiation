@@ -40,7 +40,7 @@ package com.github._38.radiation.modules {
 		val getter  ="""function () {
                             return $$0$$;  /* this is the variable we care about */
                         }""".e
-		var functionIdx = -1
+		var functionIdx = -1   /* This makes the index start with 0 */
 		def getClosureOjbect(root:Node) = {
 			val result = mutable.Set[String]()
 			def activeSymbol(node:Node):Node = node match {

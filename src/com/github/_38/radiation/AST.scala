@@ -89,7 +89,7 @@ package com.github._38.radiation.ast {
 			}
 			val args = buildArgs(cargs, what).toArray[AnyRef]
 			val cons = this.getClass.getConstructors()(0)
-			cons.newInstance(args:_*).asInstanceOf[Node]
+			cons.newInstance(args:_*).asInstanceOf[Node]  /* TODO we need preserve the location infomation here */
 		}
 		/** traverse the AST, make transformation at the same time
 		 *  @note There's serveral virtual nodes that represents the update command,
@@ -108,29 +108,30 @@ package com.github._38.radiation.ast {
 			val result = /*if(processed ne this) processed
 			else*/
 			{
-				def processList(list:List[Node]):List[Node] = list match {
-					case x :: xs => {
-						val traverseRes = x traverse transform
-						val next      = processList(xs)
-						traverseRes match {
-							case Bundle(what) => what match {
-								case List(identity) if identity eq x => list
-								case _                               => what ++ next
-							}
-							case newNode:Node => {
-								if((newNode eq x) && (next eq xs)) list
-								else newNode :: next
-							}
-						}
-					}
-					case List()    => List()
-				}
 				val childRes = cargs map ((x:AnyRef) => (x match {
 					case list:List[_] => {
 						val toProcess = transform(Begin(this)) match {
 							case Patch(begin, what, howmany) => list.patch(begin, what, howmany)
 							case _                           => list
 						};
+						val listBegin = this.pattern.getListIndex 
+						def processList(list:List[Node]):List[Node] = list match {
+							case x :: xs => {
+								val traverseRes = x traverse transform
+								val next      = processList(xs)
+								traverseRes match {
+									case Bundle(what) => what match {
+										case List(identity) if identity eq x => list
+										case _                               => what ++ next
+									}
+									case newNode:Node => {
+										if((newNode eq x) && (next eq xs)) list
+										else newNode :: next
+									}
+								}
+							}
+							case List()    => List()
+						}
 						val processed = processList(list.asInstanceOf[List[Node]]);
 						transform(End(this)) match {
 							case Patch(begin, what, howmany) => processed.patch(begin, what, howmany)

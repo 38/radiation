@@ -5,7 +5,7 @@ import scala.math.max
 
 import org.mozilla.javascript.ScriptRuntime
 
-import com.github._38.radiation.source.Location
+import com.github._38.radiation.source.{Location, KnownLocation}
 
 package com.github._38.radiation.codemap {
 	/** Parse the VLQ Code Maps
@@ -17,7 +17,7 @@ package com.github._38.radiation.codemap {
 		case class  Num(val value:Int) extends Token;
 		case object MSep extends Token;
 		case object LSep extends Token;
-		case class  CodeMap(val srcId:Int, val symbolId:Int, val genPos:Location, val orgPos:Location) extends Token with Ordered[CodeMap] {
+		case class  CodeMap(val srcId:Int, val symbolId:Int, val genPos:KnownLocation, val orgPos:KnownLocation) extends Token with Ordered[CodeMap] {
 			private def _get(idx:Int) = idx match {
 				case 0 => Some(genPos.line)
 				case 1 => Some(genPos.column)
