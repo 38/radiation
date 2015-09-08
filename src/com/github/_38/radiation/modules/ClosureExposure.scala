@@ -40,7 +40,7 @@ package com.github._38.radiation.modules {
 		val getter  ="""function () {
                             return $$0$$;  /* this is the variable we care about */
                         }""".e
-		var functionIdx = -1   /* This makes the index start with 0 */
+		var functionIdx = -1   //This makes the index start with 0
 		def getClosureOjbect(root:Node) = {
 			val result = mutable.Set[String]()
 			def activeSymbol(node:Node):Node = node match {
@@ -53,7 +53,7 @@ package com.github._38.radiation.modules {
 			Dict(filtered.toList map (name => :::(Id("get_" + name), getter.render(Id(name)))))
 		}
 		def visitor(node:Node):Node = node match {
-			case End(Program(_, _)) => Patch(0, header, 0)   /* Add the header */
+			case End(Program(_, _)) => Patch(0, header, 0)   // Add the header
 			case f @ FuncDef(Some(name), _, _, _) => {
 				functionIdx += 1
 				Bundle(funcDef.render(f.asExpr, name, Num(functionIdx.toString), getClosureOjbect(f)))
@@ -65,7 +65,7 @@ package com.github._38.radiation.modules {
 			case _ => node
 		}
 		
-		def run(program:Node) = program traverse visitor
+		def run(program:Node) = program traverse visitor 
 	}
 }
 

@@ -26,3 +26,4 @@ resolvers += Resolver.sonatypeRepo("public")
 scalacOptions ++= Seq("-unchecked", "-deprecation")
 
 scalaSource in Compile := baseDirectory.value / "src"
+
