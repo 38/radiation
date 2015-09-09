@@ -34,16 +34,16 @@ package com.github._38.radiation.codemap {
 			}
 			def compare(that: CodeMap) = _compareImpl(that, 0)
 			def -(that:CodeMap) = CodeMap(srcId - that.srcId, symbolId - that.symbolId, genPos - that.genPos, orgPos - that.orgPos)
-			private def _toVLQ(fid:Int = 1):String = _get(fid) match {
+			private def _toVLQ(fid:Int = 1):(String, Int) = _get(fid) match {
 				case Some(x) => {
-					val tail = _toVLQ(fid + 1)
-					if(tail == "" && x == 0) "" else valueToVLQ(x) + tail
+					val (tail, n) = _toVLQ(fid + 1)
+					if(tail == "" && x == 0) ("", 0) else (valueToVLQ(x) + tail, n + 1)
 				}
-				case None    => ""
+				case None    => ("", 0)
 			}
 			def toVLQ = {
-				val result = _toVLQ()
-				result + "A" * max(4 - result.length, 0)  /* TODO: fix this */
+				val (result, n) = _toVLQ()
+				result + "A" * max(4 - n, 0)
 			}
 			def NL = CodeMap(srcId, symbolId, Location(genPos.line + 1, 0), orgPos)
 		}
