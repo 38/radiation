@@ -3,7 +3,7 @@ import scala.language.implicitConversions
 
 import org.mozilla.javascript.{ast => RhinoAST, Parser, Node => RhinoNode, Token => RhinoToken, ScriptRuntime, CompilerEnvirons}
 import com.github._38.radiation.pattern.{Conversions, TokenMapping, NodeInfo, Pattern, Empty, Compound}
-import com.github._38.radiation.source.{Location}
+import com.github._38.radiation.source.{Location, Undefined}
 import scala.math.max
 import scala.reflect.{ClassTag, classTag}
 
@@ -105,24 +105,38 @@ package com.github._38.radiation.ast {
 		 */
 		def traverse(transform:Node => Node):Node = {
 			Node.stack push this
-			val result = /*if(processed ne this) processed
-			else*/
-			{
+			val result = {
+				val listBegin = this.pattern match {
+					case c:Compound => c.getListIndex
+					case _          => -1
+				}
+				val listLength = if(listBegin == -1) 0 else pattern.asInstanceOf[Compound].values(listBegin).length
+				var locList = lexerTokenList match {
+					case Some(list) => list
+					case None       => List[Location]()
+				}
 				val childRes = cargs map ((x:AnyRef) => (x match {
 					case list:List[_] => {
 						val toProcess = transform(Begin(this)) match {
-							case Patch(begin, what, howmany) => list.patch(begin, what, howmany)
+							case Patch(begin, what, howmany) => {
+								val howmany_loc = if(begin == listLength)  howmany - 1 else howmany
+								val what_loc = (1 to (if(begin == listLength) what.length - 1 else what.length)) map (_ => Undefined)
+								locList = locList.patch(begin + listBegin, what_loc , howmany_loc)
+								list.patch(begin, what, howmany)
+							}
 							case _                           => list
-						};
-						val listBegin = this.pattern.getListIndex 
-						def processList(list:List[Node]):List[Node] = list match {
+						}
+						def processList(list:List[Node], index:Int):List[Node] = list match {
 							case x :: xs => {
 								val traverseRes = x traverse transform
-								val next      = processList(xs)
+								val next      = processList(xs, index + 1)
 								traverseRes match {
 									case Bundle(what) => what match {
 										case List(identity) if identity eq x => list
-										case _                               => what ++ next
+										case _                               => {
+											locList = locList.patch(index, what.tail map (_ => Undefined), 0)
+											what ++ next
+										}
 									}
 									case newNode:Node => {
 										if((newNode eq x) && (next eq xs)) list
@@ -132,9 +146,14 @@ package com.github._38.radiation.ast {
 							}
 							case List()    => List()
 						}
-						val processed = processList(list.asInstanceOf[List[Node]]);
+						val processed = processList(toProcess.asInstanceOf[List[Node]], listBegin);
 						transform(End(this)) match {
-							case Patch(begin, what, howmany) => processed.patch(begin, what, howmany)
+							case Patch(begin, what, howmany) => {
+								val howmany_loc = if(begin == listLength)  howmany - 1 else howmany
+								val what_loc = (1 to (if(begin == listLength) what.length - 1 else what.length)) map (_ => Undefined)
+								locList = locList.patch(begin + listBegin, what_loc , howmany_loc)
+								processed.patch(begin, what, howmany)
+							}
 							case _                           => processed
 						}
 					}
@@ -142,8 +161,17 @@ package com.github._38.radiation.ast {
 					case node:Node       => node traverse transform
 					case whaterver       => whaterver
 				}));
-				val changed = (false /: (childRes zip cargs))((x,y) => (x || (y._1 ne y._2)))
-				if(changed) this.change(childRes)
+				def _childChanged(x:AnyRef, y:AnyRef) = (x, y) match {
+					case (None, None) => false
+					case (None, _)    => true
+					case (_, None)    => true
+					case (Some(x:AnyRef), Some(y:AnyRef)) => x ne y
+					case (Some(x:AnyRef), y) => x ne y
+					case (x, Some(y:AnyRef)) => x ne y
+					case (x, y) => x ne y
+				}
+				val changed = (false /: (childRes zip cargs))((x,y) => (x || _childChanged(y._1, y._2)))
+				if(changed) this.change(childRes)(Some(locList))
 				else this
 			}
 			val processed = transform(result)

@@ -43,7 +43,7 @@ package com.github._38.radiation.codemap {
 			}
 			def toVLQ = {
 				val result = _toVLQ()
-				result + "A" * max(4 - result.length, 0)
+				result + "A" * max(4 - result.length, 0)  /* TODO: fix this */
 			}
 			def NL = CodeMap(srcId, symbolId, Location(genPos.line + 1, 0), orgPos)
 		}
@@ -189,6 +189,7 @@ package com.github._38.radiation.codemap {
 		}
 		def fromAST(targetFile:String, sourceFile:String, tree:Node):String = {
 			val mappings = _getMappings(0, 0, tree).toList
+			System.out.println(mappings.sorted)
 			SourceMapFile(VERSION,
 			              Some(targetFile),
 			              Some(List(sourceFile)),
