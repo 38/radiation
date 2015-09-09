@@ -8,5 +8,6 @@ libs/
 *.swn
 .classpath
 .project
+.cache-main
 .settings/
 /bin/
