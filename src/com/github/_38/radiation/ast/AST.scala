@@ -1,6 +1,5 @@
 package com.github._38.radiation.ast
 
-import org.mozilla.javascript.ast._
 import com.github._38.radiation.source.{Location}
 /** The unified node type
  *  @note this means we do not have subclass of node anymore. 
@@ -9,6 +8,4 @@ import com.github._38.radiation.source.{Location}
  *        If we have different inherated class for different node,
  *        It's difficult to change it
  */
-class Node(val type:NodeType) {
-
-}
+case class Node(val tag:NodeTag, val members:List[Node]);
