@@ -5,7 +5,8 @@ import scala.language.postfixOps
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-import org.mozilla.javascript.{Node => RhinoNode, ast => RhinoAST, Token => RhinoToken}
+import org.mozilla.javascript.{Node => RhinoNode, ast => RhinoAST, Token => RhinoToken, ScriptRuntime}
+import ScriptRuntime.escapeString
 
 import com.github._38.radiation.source.{Location, NotInSource, InSource}
 import RhinoAST.AstNode
@@ -558,7 +559,10 @@ object Return extends ControlFlow {
 }
 
 object Str extends Constant {
-	def apply(n:RhinoAST.StringLiteral) = new Complex(this, n.getValue(true).at(n,0) :: Nil)
+	def apply(n:RhinoAST.StringLiteral) = {
+		val quote = n.getQuoteCharacter
+		new Complex(this, (quote + escapeString(n.getValue, quote) + quote).at(n,0)  :: Nil)
+	}
 	def unapply(n:Node) = _unapply[String](n, (_(1).targetCode))
 	override def toString = "str"
 }
