@@ -5,6 +5,6 @@ trait Location;
 case object NotInSource extends Location;
 /** Case describe &lt;File, Line, Column&gt; */
 case class InSource(file:String, line:Int, column:Int) extends Location{
-    override def toString() = "%s@%d:%d".format(file, line, column)
+	override def toString() = "%s@%d:%d".format(file, line, column)
 }
 
