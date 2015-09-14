@@ -13,11 +13,7 @@ resolvers ++= Seq(
   "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/"
 )
 
-libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
-
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.3.0"
-
-libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.2"
 
 unmanagedJars in Compile += file("libs/rhino-1.7.8-SNAPSHOT.jar")
 

@@ -10,4 +10,4 @@ libs/
 .project
 .cache-main
 .settings/
-/bin/
+bin/
