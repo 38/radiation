@@ -35,7 +35,7 @@ object Lexer {
 	}
 	private def _parseEscape(chars:Stream[Char], result:StringBuilder):Stream[Char] = chars match {
 		case '"'  #:: rem => _add(result, '"',  rem)
-		case '\''  #:: rem => _add(result, ''',  rem)
+		case '\''  #:: rem => _add(result, '\'',  rem)
 		case '\\' #:: rem => _add(result, '\\', rem)
 		case '/'  #:: rem => _add(result, '/',  rem)
 		case 'b'  #:: rem => _add(result, '\b', rem)
