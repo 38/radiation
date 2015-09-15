@@ -8,7 +8,7 @@ object Main {
 		//System.out.println(AST.parseFromSource("../jsdb/test/jquery.js").targetCode)
 		val a = Base64Int(3145728)
 		System.out.println(a:Int)
-		val s = ".".toStream
+		val s = "zd.".toStream
 		val (what, next) = Base64Int.fromStream(s)
 		System.out.println(what)	
 		System.out.println(next.toList)	
