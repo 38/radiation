@@ -359,15 +359,16 @@ object Call extends Expression {
 	override def toString = "apply"
 }
 
+/** Represents a switch case */
 object Case extends NodeType {
 	def apply(n:RhinoAST.SwitchCase) = new Complex(this, if(n.getExpression != null)
 	    "case".at(n,0) :: n.getExpression.asNode :: ":".at(n,1) :: n.getStatements.asScala.map(_.asNode).toList
 	else
 	    "default".at(n,0) :: ":".at(n,1) :: n.getStatements.asScala.map(_.asNode).toList
 	)
-	def unapply(n:Node) = _unapply[(Node, List[Node])](n, x => {
+	def unapply(n:Node) = _unapply[(Option[Node], List[Node])](n, x => {
 		val isDefault = x(0).targetCode == "default"
-		(x(1), x.drop(if(isDefault) 2 else 3))
+		(if(isDefault) None else Some(x(1)), x.drop(if(isDefault) 2 else 3))
 	})
 	override def toString = "case"
 }
