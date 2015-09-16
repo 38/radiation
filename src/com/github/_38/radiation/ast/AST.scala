@@ -122,7 +122,7 @@ object Node {
  *  @param where the location in the source code
  *  @note all the leaf node in the AST has to be this type
  */
-class Lexical(val what:String, val where:Location) extends Node{
+case class Lexical(val what:String, val where:Location) extends Node{
 	val nodeType = LexicalToken
 	def targetCode = what;
 	lazy val targetCodeLength = what.length
