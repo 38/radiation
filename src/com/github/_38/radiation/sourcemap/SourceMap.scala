@@ -68,9 +68,8 @@ class SourceMap(val mappings:List[SourceMapItem]) {
             })
             result append "]"
         }
-		
         val buf = new Array[_SourceMapInteral](mappings.length)
-		val sources = _toInternal(mappings, buf, Map(), 0)
+        val sources = _toInternal(mappings, buf, Map(), 0)
         scala.util.Sorting.quickSort(buf)
         result append "{"
         result append "\"version\":3,"
