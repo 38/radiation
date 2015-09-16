@@ -39,8 +39,8 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 			if(dSymbol == 0) return dTargetColumn :: dSourceFile :: dSourceLine :: dSourceColumn :: Nil
 			dTargetColumn:: dSourceFile :: dSourceLine :: dSourceColumn :: dSymbol :: Nil
 		}
-        def newLine(n:Int) = new _SourceMapInteral(sourceFile, symbol, sourceLine, sourceColumn, targetLine + n, 0)
-        override def toString = "(%d,%d,%d,%d,%d,%d)".format(sourceFile, symbol, sourceLine, sourceColumn, targetLine, targetColumn)
+        	def newLine(n:Int) = new _SourceMapInteral(sourceFile, symbol, sourceLine, sourceColumn, targetLine + n, 0)
+        	override def toString = "(%d,%d,%d,%d,%d,%d)".format(sourceFile, symbol, sourceLine, sourceColumn, targetLine, targetColumn)
 	}
 	@tailrec
 	private def _toInternal(mappings:List[SourceMapItem], result:Array[_SourceMapInteral], sources:Map[String, Int], n:Int):Map[String, Int] = 
