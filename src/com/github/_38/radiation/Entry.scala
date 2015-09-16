@@ -5,9 +5,9 @@ import com.github._38.radiation.sourcemap._
 import Base64IntConverters._
 object Main {
 	def main(args:Array[String]) {
-        val ast = AST.parseFromSource("../test.js")
-        System.out.println(ast)
-        System.out.println(ast.targetCode)
-        System.out.println(SourceMap.fromAST(ast, "test.min.js").dump)
+		val ast = AST.parseFromSource("../test.js")
+		System.out.println(ast)
+		System.out.println(ast.targetCode)
+		System.out.println(SourceMap.fromAST(ast, "test.min.js").dump)
 	}
 }
