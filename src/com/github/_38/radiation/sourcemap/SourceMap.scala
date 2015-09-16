@@ -65,59 +65,60 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 				if(first) result append '['
 				else result append ','
 				result append "\"%s\"".format(escapeString(f, '"'))
-            })
-            result append "]"
-        }
-        val buf = new Array[_SourceMapInteral](mappings.length)
-        val sources = _toInternal(mappings, buf, Map(), 0)
-        scala.util.Sorting.quickSort(buf)
-        result append "{"
-        result append "\"version\":3,"
-					result append "\"sourceRoot\":\"\","
-					_dumpList("sources", sources.toList.map(x => (x._2, x._1)).sorted.map(x => x._2))
-					result append ","
-					result append "\"names\":[],"
-					result append "\"mappings\":\""
-					var currentLine = 0
-					var lastItem = new _SourceMapInteral(0,0,0,0,0,0)
-					var first = true
-					buf.foreach(item => {
-						if(item.targetLine != currentLine) {
-							(1 to item.targetLine - currentLine).foreach(_ => result append ';')
-							lastItem.newLine(item.targetLine - currentLine)
-							currentLine = item.targetLine
-						} else if(!first) result append ","
-						else first = false
-						(item - lastItem).foreach(num => {
-							result append Base64Int(num).encode
-						})
-						lastItem = item
-					})
-					result append "\""
-					result append "}"
-					result.toString
-				}
-			}
-			object SourceMap {
-				def fromAST(ast:Node, target:String) = {
-					def _fromAST(ast:Node, target:String, result:ListBuffer[SourceMapItem], offset:Int = 0) {
-						ast match {
-							case Lexical(_, where:InSource)  => result += SourceMapItem (where, InSource(target, 0, offset), None)
-							case c:Complex => {
-								var ofs = offset
-								var prevous:Node = null
-								for(child <- c.child) {
-									ofs += (if(prevous == null) 0 else whiteSpaces(prevous, child))
-									_fromAST(child, target, result, ofs)
-									ofs += child.targetCodeLength
-									prevous = child
-								}
-							}
-							case _ => ()
-						}
+			})
+			result append "]"
+		}
+		
+		val buf = new Array[_SourceMapInteral](mappings.length)
+		val sources = _toInternal(mappings, buf, Map(), 0)
+		scala.util.Sorting.quickSort(buf)
+		result append "{"
+		result append "\"version\":3,"
+		result append "\"sourceRoot\":\"\","
+		_dumpList("sources", sources.toList.map(x => (x._2, x._1)).sorted.map(x => x._2))
+		result append ","
+		result append "\"names\":[],"
+		result append "\"mappings\":\""
+		var currentLine = 0
+		var lastItem = new _SourceMapInteral(0,0,0,0,0,0)
+		var first = true
+		buf.foreach(item => {
+			if(item.targetLine != currentLine) {
+				(1 to item.targetLine - currentLine).foreach(_ => result append ';')
+				lastItem.newLine(item.targetLine - currentLine)
+				currentLine = item.targetLine
+			} else if(!first) result append ","
+			else first = false
+			(item - lastItem).foreach(num => {
+				result append Base64Int(num).encode
+			})
+			lastItem = item
+		})
+		result append "\""
+		result append "}"
+		result.toString
+	}
+}
+object SourceMap {
+	def fromAST(ast:Node, target:String) = {
+		def _fromAST(ast:Node, target:String, result:ListBuffer[SourceMapItem], offset:Int = 0) {
+			ast match {
+				case Lexical(_, where:InSource)  => result += SourceMapItem (where, InSource(target, 0, offset), None)
+				case c:Complex => {
+					var ofs = offset
+					var prevous:Node = null
+					for(child <- c.child) {
+						ofs += (if(prevous == null) 0 else whiteSpaces(prevous, child))
+						_fromAST(child, target, result, ofs)
+						ofs += child.targetCodeLength
+						prevous = child
 					}
-					val buffer = new ListBuffer[SourceMapItem]()
-					_fromAST(ast, target, buffer, 0)
-					new SourceMap(buffer.toList)
 				}
+				case _ => ()
 			}
+		}
+		val buffer = new ListBuffer[SourceMapItem]()
+		_fromAST(ast, target, buffer, 0)
+		new SourceMap(buffer.toList)
+	}
+}

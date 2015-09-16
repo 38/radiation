@@ -68,32 +68,32 @@ object Lexer {
 	}
 	def apply(chars:Stream[Char]):Stream[Token] = chars match {
 		case c #:: rem if (c == '"' || c == '\'') => {
-		    val strval = new StringBuilder
-		    val (unparsed, what) = _parseString(rem, strval, c)
-		    StringLiteral(what) #:: apply(unparsed)
-	    }
-	    case _int(true, i) #:: rem => {
-		    val (unparsed, what) = _parseInt(rem, i)
-		    IntegerLiteral(what) #:: apply(unparsed)
-	    }
-	    case 'n' #:: 'u' #:: 'l' #:: 'l' #:: (rem @ (c #:: _)) if('a' <= c && c <= 'z') => Keyword("null") #:: apply(rem)
-	    case _whitespace(()) #:: rem    => apply(rem)
-	    case whatever #:: rem => Keyword(whatever.toString) #:: apply(rem)
-	    case Stream() => Stream()
+			val strval = new StringBuilder
+			val (unparsed, what) = _parseString(rem, strval, c)
+			StringLiteral(what) #:: apply(unparsed)
+		}
+		case _int(true, i) #:: rem => {
+			val (unparsed, what) = _parseInt(rem, i)
+			IntegerLiteral(what) #:: apply(unparsed)
+		}
+		case 'n' #:: 'u' #:: 'l' #:: 'l' #:: (rem @ (c #:: _)) if('a' <= c && c <= 'z') => Keyword("null") #:: apply(rem)
+		case _whitespace(()) #:: rem    => apply(rem)
+		case whatever #:: rem => Keyword(whatever.toString) #:: apply(rem)
+		case Stream() => Stream()
+	}
     }
+    /** A minimized JSON parser sepecified for source map */
+    object Parser {
+	/*private def _parseJSONBody(tokens:Stream[Token], result:Map[(String, Any)]):(Stream[Token], Map[(String, Any)]) = {
         }
-        /** A minimized JSON parser sepecified for source map */
-        object Parser {
-    /*private def _parseJSONBody(tokens:Stream[Token], result:Map[(String, Any)]):(Stream[Token], Map[(String, Any)]) = {
+	private def _parseSourceMap(tokens:Stream[Token]):SourceMap = tokens match {
+	    case Keyword("{") #:: next  =>  {
+	        val (remaining, dict) = _parseJSONBody(next, Map())
+	        new SourceMap(Nil)
             }
-    private def _parseSourceMap(tokens:Stream[Token]):SourceMap = tokens match {
-        case Keyword("{") #:: next  =>  {
-            val (remaining, dict) = _parseJSONBody(next, Map())
-            new SourceMap(Nil)
-                }
-        case _                      => throw new SyntaxError("Source map must start with `{'")
-            }
-    def apply(chars:Stream[Char]):SourceMap = {
-        
-            }*/
+	    case _                      => throw new SyntaxError("Source map must start with `{'")
         }
+	def apply(chars:Stream[Char]):SourceMap = {
+	    
+        }*/
+    }

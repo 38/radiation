@@ -13,6 +13,7 @@ import os
 def format(fp):
 	comment = False
 	string  = False
+	char   = False
 	escape = False
 	idlevel = 0
 	recent = "  "
@@ -33,16 +34,21 @@ def format(fp):
 			header = header.group() if header else ""
 		for ch in line:
 			recent = (recent + ch)[1:]
-			if not comment and not string:
+			if not comment and not string and not char:
 				if recent == "//": break
 				elif recent == "/*": comment = True 
 				elif recent[1] == "\"": string = True
+				elif recent[1] == "\'": char = True
 			elif comment:
 				if recent == "*/": comment = False
 			elif string:
 				if not escape and recent[1] == "\\": escape = True
 				elif escape: escape = False
 				elif recent[1] == '"': string = False
+			elif char:
+				if not escape and recent[1] == "\\": escape = True
+				elif escape: escape = False
+				elif recent[1] == "\'": char = False
 			if not comment and not string:
 				if(ch == '{'): idlevel += 1
 				if(ch == '}'): idlevel -= 1
