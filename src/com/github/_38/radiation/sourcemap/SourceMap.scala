@@ -61,11 +61,11 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		def _dumpList(key:String, value:List[String]) {
 			result append "\"%s\":".format(key)
 			var first = true
-			value.foreach(f => {
+			for(f <- value){
 				if(first) result append '['
 				else result append ','
 				result append "\"%s\"".format(escapeString(f, '"'))
-			})
+			}
 			result append "]"
 		}
 		
@@ -82,18 +82,16 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		var currentLine = 0
 		var lastItem = new _SourceMapInteral(0,0,0,0,0,0)
 		var first = true
-		buf.foreach(item => {
+		for(item <- buf){
 			if(item.targetLine != currentLine) {
-				(1 to item.targetLine - currentLine).foreach(_ => result append ';')
+				for(_ <- 1 to item.targetLine - currentLine) result append ';'
 				lastItem.newLine(item.targetLine - currentLine)
 				currentLine = item.targetLine
 			} else if(!first) result append ","
 			else first = false
-			(item - lastItem).foreach(num => {
-				result append Base64Int(num).encode
-			})
+			for(num <- (item - lastItem)) result append Base64Int(num).encode
 			lastItem = item
-		})
+		}
 		result append "\""
 		result append "}"
 		result.toString

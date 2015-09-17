@@ -50,7 +50,10 @@ object Helper {
 	}
 	
 	/** get the number of white spaces that should be inserted between two node */
-	def whiteSpaces(last:Node, next:Node) = _whiteSpace(Some(last.lastChar), next.firstChar).length
+	def whiteSpaces(last:Node, next:Node) =
+	    if(last.targetCodeLength > 0 && next.targetCodeLength > 0)
+	        _whiteSpace(Some(last.lastChar), next.firstChar).length
+	    else 0
 	
 	implicit def fromString(s:String) = new Lexical(s, NotInSource)
 }
