@@ -19,7 +19,7 @@ unmanagedJars in Compile += file("libs/rhino-1.7.8-SNAPSHOT.jar")
 
 resolvers += Resolver.sonatypeRepo("public")
 
-scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-optimize")
 
 scalaSource in Compile := baseDirectory.value / "src"
 

@@ -134,7 +134,7 @@ case class Lexical(val what:String, val where:Location) extends Node{
 	 *  @return the newly created node that contains the location information */
 	def at(node:AstNode, index:Int) = {
 		val tokens = node.getTokenList
-		if(index < tokens.size) {
+		if(tokens != null && index < tokens.size) {
 			val l = tokens.get(index)
 			new Lexical(what, InSource(l.getFileName, l.getLineno, l.getColumn))
 		} else this
