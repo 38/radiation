@@ -9,7 +9,7 @@ trait ForLoopInit   extends NodeType
 trait Scope         extends NodeType
 trait LocalScope    extends Scope
 trait GlobalScope   extends Scope
-trait Function      extends NodeType
+trait Function      extends NodeType with LocalScope
 trait ControlFlow   extends Statement
 trait Loop          extends ControlFlow
 trait ForLoop       extends Loop

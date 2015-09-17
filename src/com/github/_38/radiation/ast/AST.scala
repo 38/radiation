@@ -472,11 +472,6 @@ object FuncExpr extends Func with Expression {
 	override def toString = "func-expr"
 }
 
-object FuncStmt extends Func with Statement {
-	val isStatement = true
-	override def toString = "func"
-}
-
 object Id extends Expression {
 	def apply(n:RhinoAST.Name) = new Complex(this, n.getString.at(n,0) :: Nil)
 	def unapply(n:Node) = _unapply[Node](n, (_(0)))
@@ -539,8 +534,8 @@ object Prefix extends Expression {
 	override def toString = "prefix-op"
 }
 
-object Program extends NodeType {
-	def apply(n:RhinoAST.AstRoot) = new Complex(this, n)
+object Program extends NodeType with GlobalScope {
+	def apply(n:RhinoAST.AstRoot) = new Complex(this, n, Some(ScopeMetaData(n)))
 	def unapply(n:Node) = _unapply[(List[Node])](n, x => x)
 	override def toString = "program"
 }

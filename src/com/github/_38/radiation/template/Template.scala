@@ -1,4 +1,4 @@
-package com.github._38.radiation.template; 
+package com.github._38.radiation.template;
 
 import com.github._38.radiation.ast._
 import scala.language.implicitConversions
@@ -15,7 +15,7 @@ class TemplateHelper(str:String) {
 	def t = new StatementTemplate(str)
 	def e = new ExpressionTemplate(str)
 	def js = {
-		val Program(what) = AST parseFromString str 
+		val Program(what) = AST parseFromString str
 		what
 	}
 }
