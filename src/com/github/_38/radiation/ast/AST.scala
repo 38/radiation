@@ -36,7 +36,9 @@ trait Node {
 }
 
 object Node {
-	/** Implicitly convert a Rhino Ast Node to Node */
+	/** Implicitly convert a Rhino Ast Node to Node 
+	 *  @note the node type object FuncExpr handle both Function Expression and Function Statement (which represents as ExprStmt(FuncExpr(...)) 
+	 */
 	implicit def fromRhinoAst(node:AstNode):Node = node match {
 		case n:RhinoAST.ObjectProperty          => :::(n)
 		case n:RhinoAST.NewExpression           => New(n)
@@ -56,7 +58,7 @@ object Node {
 		case n:RhinoAST.ForLoop                 => For(n)
 		case n:RhinoAST.ForInLoop               => if(n.isForEach) ForEach(n) else ForIn(n)
 		case n:RhinoAST.FunctionCall            => Call(n)
-		case n:RhinoAST.FunctionNode            => if(n.getFunctionType == RhinoAST.FunctionNode.FUNCTION_STATEMENT) FuncStmt(n) else FuncExpr(n)
+		case n:RhinoAST.FunctionNode            => FuncExpr(n) 
 		case n:RhinoAST.KeywordLiteral          => {
 			(n getType) match {
 				case RhinoToken.THIS            => This(n)
@@ -224,7 +226,7 @@ abstract class ExpressionList extends NodeType {
 	/** Get the number of tokens consumed by this argument list node */
 	def tokenConsumed(n:Node) = (n.nodeType, n) match {
 		case (_:ExpressionList, n:Complex) => 2 + (if(n.child.length == 2) 0 else (n.child.length - 1) / 2 - 1)
-		case what:NodeType                  => throw new InvalidASTException("Expression List Node Expected, but got %s" format what)
+		case (what:NodeType, _)            => throw new InvalidASTException("Expression List Node Expected, but got %s" format what)
 	}
 }
 
@@ -262,24 +264,6 @@ abstract class VarDeclList extends NodeType {
 	def unapply(n:Node) = _unapply[(String, List[Node])](n, x => (x(0).targetCode, x.drop(1)))
 }
 
-/** Represents the node that defines a function */
-abstract class Func extends Function {
-	/** abstract value, indicates if this is a statement */
-	val isStatement:Boolean
-	def apply(n:RhinoAST.FunctionNode) = new Complex(this, {
-		val header = "function".at(n,0) :: Nil
-		val name   = if(n.getFunctionName == null) Nil else n.getFunctionName.asNode :: Nil
-		val param  = Arguments(n, 1, n.getParams)
-		val body   = n.getBody.asNode
-		header ++ name ++ (param :: body :: (if(isStatement) ";".at(n, 1 + Arguments.tokenConsumed(param)) :: Nil else Nil))
-	}, Some(ScopeMetaData(n)))
-	/** Function(name, params, body) */
-	def unapply(n:Node) = _unapply[(Option[Node], Node, Node)](n, x => {
-		val hasName = (x.length == 5 && isStatement) || (x.length == 4 && !isStatement)
-		if(hasName) (Some(x(1)), x(2), x(3))
-		else        (None      , x(1), x(2))
-	})
-}
 /************ Node Type Objects **************/
 
 /** left.right */
@@ -467,8 +451,26 @@ object ForIn extends ForLoop {
 	override def toString = "for-in"
 }
 
-object FuncExpr extends Func with Expression {
-	val isStatement = false
+object FuncExpr extends Function with Expression {
+	def apply(n:RhinoAST.FunctionNode) = {
+		val buffer = new ListBuffer[Node]()
+		val args = Arguments(n, 1, n.getParams)
+		buffer append "function".at(n, 0)
+		if(n.getFunctionName != null) buffer append n.getFunctionName.asNode
+		buffer append args
+		buffer append n.getBody.asNode
+		val expr = new Complex(this, buffer.toList, Some(ScopeMetaData(n)))
+		if(n.getFunctionType == RhinoAST.FunctionNode.FUNCTION_STATEMENT)
+			new Complex(ExprStmt, expr :: ";".at(n, 1 + Arguments.tokenConsumed(args)) :: Nil)
+		else 
+			expr
+	}
+	/** FuncExpr(name, params, body) */
+	def unapply(n:Node) = _unapply[(Option[Node], Node, Node)](n, x => {
+		val hasName = x.length == 4
+		if(hasName) (Some(x(1)), x(2), x(3))
+		else        (None      , x(1), x(2))
+	})
 	override def toString = "func-expr"
 }
 

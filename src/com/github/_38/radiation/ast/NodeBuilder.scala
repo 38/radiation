@@ -20,6 +20,9 @@ class NodeBuilder(original:Complex) {
 		}
 		_buffer append child
 	}
+	def ++= (that:List[Node]) {
+		that.foreach(this.append)
+	}
 	def toNode = _current match {
 		case Some(Nil)  =>  original
 		case _          =>  new Complex(_type, _buffer.toList)

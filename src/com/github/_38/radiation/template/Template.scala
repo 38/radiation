@@ -55,7 +55,7 @@ class ExpressionTemplate(tempStr:String) extends Template {
 		case Program(ExprStmt(PE(what)) :: _) => List(what)
 		case _                                      => throw new InvalidTemplateException("Malformed template")
 	}
-	def render(args:Node*):Expression = _renderOne(templateAST(0), args:_*).asInstanceOf[Expression]
+	def render(args:Node*) = _renderOne(templateAST(0), args:_*)
 }
 object Template {
 	implicit def stringToTemplate(s:String) = new TemplateHelper(s)
