@@ -36,8 +36,8 @@ trait Node {
 }
 
 object Node {
-	/** Implicitly convert a Rhino Ast Node to Node 
-	 *  @note the node type object FuncExpr handle both Function Expression and Function Statement (which represents as ExprStmt(FuncExpr(...)) 
+	/** Implicitly convert a Rhino Ast Node to Node
+	 *  @note the node type object FuncExpr handle both Function Expression and Function Statement (which represents as ExprStmt(FuncExpr(...))
 	 */
 	implicit def fromRhinoAst(node:AstNode):Node = node match {
 		case n:RhinoAST.ObjectProperty          => :::(n)
@@ -58,7 +58,7 @@ object Node {
 		case n:RhinoAST.ForLoop                 => For(n)
 		case n:RhinoAST.ForInLoop               => if(n.isForEach) ForEach(n) else ForIn(n)
 		case n:RhinoAST.FunctionCall            => Call(n)
-		case n:RhinoAST.FunctionNode            => FuncExpr(n) 
+		case n:RhinoAST.FunctionNode            => FuncExpr(n)
 		case n:RhinoAST.KeywordLiteral          => {
 			(n getType) match {
 				case RhinoToken.THIS            => This(n)
@@ -461,9 +461,9 @@ object FuncExpr extends Function with Expression {
 		buffer append n.getBody.asNode
 		val expr = new Complex(this, buffer.toList, Some(ScopeMetaData(n)))
 		if(n.getFunctionType == RhinoAST.FunctionNode.FUNCTION_STATEMENT)
-			new Complex(ExprStmt, expr :: ";".at(n, 1 + Arguments.tokenConsumed(args)) :: Nil)
-		else 
-			expr
+		    new Complex(ExprStmt, expr :: ";".at(n, 1 + Arguments.tokenConsumed(args)) :: Nil)
+		else
+		    expr
 	}
 	/** FuncExpr(name, params, body) */
 	def unapply(n:Node) = _unapply[(Option[Node], Node, Node)](n, x => {
