@@ -47,7 +47,7 @@ object Closure extends ModuleBase {
 			node match {
 				case Id(Lexical(what, _)) => symbolRef += what
 				case complex:Complex      => complex.child.foreach(child => getActiveSymbol(child))
-				case _					  => ()
+				case _                    => ()
 			}
 		}
 		getActiveSymbol(root)
@@ -78,17 +78,20 @@ object Closure extends ModuleBase {
 					val Some(ScopeMetaData(locals)) = node.metaData
 					localSymbols ++ locals
 				}
-				case _			  => localSymbols
+				case _ => localSymbols
 			}
-			node.child.foreach(child => nb ++= changeFunction(root, currentLocalSymbols, node.nodeType))
+			node.child.foreach(child => nb ++= changeFunction(child, currentLocalSymbols, node.nodeType))
 			val new_node = nb.toNode
-			node match {
-				case ExprStmt(f @ FuncExpr(Some(name), _, _)) 		  => funcDef.render(f, name, _nextId, getClosure(node, localSymbols))
-				case f @ FuncExpr(_, _, _) if parent != ExprStmt 	  => funcExp.render(_nextId, f, getClosure(node, localSymbols)) :: Nil
-				case _										          => new_node :: Nil
+			new_node match {
+				case ExprStmt(f @ FuncExpr(Some(name), _, _))       => funcDef.render(f, name, _nextId, getClosure(node, localSymbols))
+				case f @ FuncExpr(_, _, _) if parent != ExprStmt    => funcExp.render(_nextId, f, getClosure(node, localSymbols)) :: Nil
+				case _                                              => new_node :: Nil
 			}
 		}
 		case _ => root :: Nil
 	}
-	def run(program:Node) = changeFunction(program, Set(), Program)(0)
+	def run(program:Node) = {
+		val Program(result) :: _ = changeFunction(program, Set(), Empty)
+		new Complex(Program, header ++ result)
+	}
 }
