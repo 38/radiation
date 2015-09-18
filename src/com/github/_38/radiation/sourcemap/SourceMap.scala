@@ -42,6 +42,7 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		}
 		def newLine(n:Int) = new _SourceMapInteral(sourceFile, symbol, sourceLine, sourceColumn, targetLine + n, 0)
 		override def toString = "(%d,%d,%d,%d,%d,%d)".format(sourceFile, symbol, sourceLine, sourceColumn, targetLine, targetColumn)
+		//TODO keep symbol id ....
 	}
 	@tailrec
 	private def _toInternal(mappings:List[SourceMapItem], 
