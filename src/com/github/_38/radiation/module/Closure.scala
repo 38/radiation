@@ -55,10 +55,11 @@ object Closure extends ModuleBase {
 		var first = true
 		for(symbol <- localSymbol) {
 			if(symbolRef contains symbol) {
-				val getterName = new Complex(Id, (symbol:Lexical) :: Nil)
+				val symbolName = new Complex(Id, (symbol:Lexical) :: Nil)
+				val getterName = new Complex(Id, (("get_" + symbol):Lexical) :: Nil)
 				if(first) buffer append "{"
 				else buffer append ","
-				buffer.append(new Complex(::: ,  getterName :: (":":Lexical) :: getter.render(getterName) :: Nil))
+				buffer.append(new Complex(::: ,  getterName :: (":":Lexical) :: getter.render(symbolName) :: Nil))
 				first = false
 			}
 		}

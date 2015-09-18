@@ -10,6 +10,7 @@ import com.github._38.radiation.ast.Helper.whiteSpaces
 import org.mozilla.javascript.ScriptRuntime.escapeString
 
 case class SourceMapItem(val source:InSource, val target:InSource, val symbol:Option[String])
+// TODO: because symbol sometimes gone, so we need ? 
 
 class SourceMap(val mappings:List[SourceMapItem]) {
 	import Base64Int._
@@ -36,23 +37,35 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 			val dSourceColumn = sourceColumn - that.sourceColumn
 			val dSymbol       = symbol - that.symbol
 			//if(dSourceFile == 0 && dSourceLine == 0 && dSourceColumn == 0 && dSymbol == 0) return dTargetColumn :: Nil
-			if(dSymbol == 0) return dTargetColumn :: dSourceFile :: dSourceLine :: dSourceColumn :: Nil
+			if(symbol == -1) return dTargetColumn :: dSourceFile :: dSourceLine :: dSourceColumn :: Nil
 			dTargetColumn:: dSourceFile :: dSourceLine :: dSourceColumn :: dSymbol :: Nil
 		}
 		def newLine(n:Int) = new _SourceMapInteral(sourceFile, symbol, sourceLine, sourceColumn, targetLine + n, 0)
 		override def toString = "(%d,%d,%d,%d,%d,%d)".format(sourceFile, symbol, sourceLine, sourceColumn, targetLine, targetColumn)
 	}
 	@tailrec
-	private def _toInternal(mappings:List[SourceMapItem], result:Array[_SourceMapInteral], sources:Map[String, Int], n:Int):Map[String, Int] =
+	private def _toInternal(mappings:List[SourceMapItem], 
+							result:Array[_SourceMapInteral], 
+							sources:Map[String, Int], 
+							symbols:Map[String, Int],
+							n:Int):(Map[String, Int], Map[String, Int]) =
 	    mappings match {
 		    case item :: xs => {
 			    val sourceFile = item.source.file
 			    val newSources = if(sources contains sourceFile) sources else sources + (sourceFile -> sources.size)
+				val newSymbols = item.symbol match {
+					case Some(symbol) if (!(symbols contains symbol)) => symbols + symbol
+					case _                                            => symbols
+				}
 			    val fileIdx = newSources(sourceFile)
-			    result(n) = new _SourceMapInteral(fileIdx, 0, item.source.line, item.source.column, item.target.line, item.target.column)
+				val symbolIdx = item.symbol match {
+					case Some(symbol) => newSymbols(symbol)
+					case None         => -1
+				}
+			    result(n) = new _SourceMapInteral(fileIdx, symbolIdx, item.source.line, item.source.column, item.target.line, item.target.column)
 			    _toInternal(xs, result, newSources, n + 1)
 		    }
-		    case Nil       => sources
+		    case Nil       => (sources, symbols)
 	    }
 	def _listToVLQ(list:List[Int]) = list.map(Base64Int(_).encode) mkString ""
 	def dump = {
@@ -70,7 +83,7 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		}
 		
 		val buf = new Array[_SourceMapInteral](mappings.length)
-		val sources = _toInternal(mappings, buf, Map(), 0)
+		val (sources, symbols) = _toInternal(mappings, buf, Map(), 0)
 		scala.util.Sorting.quickSort(buf)
 		result append "{"
 		result append "\"version\":3,"
@@ -80,7 +93,7 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		result append "\"names\":[],"
 		result append "\"mappings\":\""
 		var currentLine = 0
-		var lastItem = new _SourceMapInteral(0,0,0,0,0,0)
+		var lastItem = new _SourceMapInteral(0,-1,0,0,0,0)
 		var first = true
 		for(item <- buf){
 			if(item.targetLine != currentLine) {
@@ -99,15 +112,20 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 }
 object SourceMap {
 	def fromAST(ast:Node, target:String) = {
-		def _fromAST(ast:Node, target:String, result:ListBuffer[SourceMapItem], offset:Int = 0) {
+		def _fromAST(ast:Node, target:String, result:ListBuffer[SourceMapItem], scopeName:String = "" ,offset:Int = 0) {
 			ast match {
-				case Lexical(_, where:InSource)  => result += SourceMapItem (where, InSource(target, 0, offset), None)
+				case Lexical(_, where:InSource)  => result += SourceMapItem (where, InSource(target, 0, offset), if(scopeName == "") None else Some(scopeName))
 				case c:Complex => {
 					var ofs = offset
 					var prevous:Node = null
+					val childScope = c match {
+						case FuncExpr(Some(Id(Lexical(what, _))), _)	=> if(scopeName == "") what else scopeName + "." + what
+						case _                                          => scopeName
+					}
 					for(child <- c.child) {
 						ofs += (if(prevous == null) 0 else whiteSpaces(prevous, child))
-						_fromAST(child, target, result, ofs)
+						if(child.nodeType != Block) _fromAST(child, target, result, scopeName, ofs)
+						else _fromAST(child, target, result, childScope, ofs)
 						ofs += child.targetCodeLength
 						prevous = child
 					}
