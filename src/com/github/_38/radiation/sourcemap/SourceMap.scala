@@ -41,29 +41,29 @@ class SourceMap(val mappings:List[SourceMapItem]) {
 		}
 		def newLine(n:Int) = new _SourceMapInternal(sourceFile, symbol, sourceLine, sourceColumn, targetLine + n, 0)
 		override def toString = "(%d,%d,%d,%d,%d,%d)".format(sourceFile, symbol, sourceLine, sourceColumn, targetLine, targetColumn)
-		def getLast(that:_SourceMapInternal) = 
-			if(symbol == -1) new _SourceMapInternal(sourceFile, that.symbol, sourceLine, sourceColumn, targetLine, targetColumn)
-			else this
+		def getLast(that:_SourceMapInternal) =
+		    if(symbol == -1) new _SourceMapInternal(sourceFile, that.symbol, sourceLine, sourceColumn, targetLine, targetColumn)
+		    else this
 	}
 	@tailrec
-	private def _toInternal(mappings:List[SourceMapItem], 
-							result:Array[_SourceMapInternal], 
-							sources:Map[String, Int], 
-							symbols:Map[String, Int],
-							n:Int):(Map[String, Int], Map[String, Int]) =
+	private def _toInternal(mappings:List[SourceMapItem],
+	                        result:Array[_SourceMapInternal],
+	                        sources:Map[String, Int],
+	                        symbols:Map[String, Int],
+	                        n:Int):(Map[String, Int], Map[String, Int]) =
 	    mappings match {
 		    case item :: xs => {
 			    val sourceFile = item.source.file
 			    val newSources = if(sources contains sourceFile) sources else sources + (sourceFile -> sources.size)
-				val newSymbols = item.symbol match {
-					case Some(symbol) if (!(symbols contains symbol)) => symbols + (symbol -> symbols.size)
-					case _                                            => symbols
-				}
+			    val newSymbols = item.symbol match {
+				    case Some(symbol) if (!(symbols contains symbol)) => symbols + (symbol -> symbols.size)
+				    case _                                            => symbols
+			    }
 			    val fileIdx = newSources(sourceFile)
-				val symbolIdx = item.symbol match {
-					case Some(symbol) => newSymbols(symbol)
-					case None         => -1
-				}
+			    val symbolIdx = item.symbol match {
+				    case Some(symbol) => newSymbols(symbol)
+				    case None         => -1
+			    }
 			    result(n) = new _SourceMapInternal(fileIdx, symbolIdx, item.source.line, item.source.column, item.target.line, item.target.column)
 			    _toInternal(xs, result, newSources, newSymbols, n + 1)
 		    }

@@ -356,34 +356,41 @@ object Case extends NodeType {
 	})
 	override def toString = "case"
 }
-
+/** A catch clause in a try ... catch statement */
 object Catch extends NodeType {
 	def apply(n:RhinoAST.CatchClause) = new Complex(this, "catch".at(n,0) :: "(".at(n,1) ::
 	                                                      n.getVarName.asNode :: (
 	                                                          if(n.getCatchCondition == null) ")".at(n,2) :: n.getBody.asNode :: Nil
 	                                                          else "if".at(n,2) :: n.getCatchCondition.asNode :: ")".at(n,3) :: n.getBody.asNode :: Nil))
+	/** Catch(variable, condition, body) */
 	def unapply(n:Node) = _unapply[(Node, Option[Node], Node)](n, x => if(x.length == 4) (x(2), None, x(4)) else (x(2), Some(x(4)), x(6)))
 	override def toString = "catch"
 }
-
+/** Continue statement */
 object Continue extends ControlFlow {
 	def apply(n:RhinoAST.ContinueStatement) = new Complex(this, "continue".at(n, 0) :: (if(n.getLabel == null)  ";" .at(n,1) :: Nil else n.getLabel.asNode :: ";".at(n,1) :: Nil))
+	/** Continue(label) */
 	def unapply(n:Node) = _unapply[Option[String]](n, x => if(x.length == 1) None else Some(x(1).targetCode))
 	override def toString = "continue"
 }
-
+/** Variable declaration in a DeclList. e.g <br/>
+  * var a = 3, b; <br/>
+  * both "a = 3" and "b" is a Decl */
 object Decl extends NodeType {
 	def apply(n:RhinoAST.VariableInitializer) = new Complex(this, n.getTarget.asNode ::
 	                                                              (if(n.getInitializer == null) Nil else "=".at(n,0) :: n.getInitializer.asNode :: Nil))
+	/** Delc(name, init-value) */
 	def unapply(n:Node) = _unapply[(Node, Option[Node])](n, x => (x(0), if(x.length == 1) None else Some(x(2))))
 	override def toString = "var-init"
 }
-
+/** A variable declaration list <br/>
+ *  var a = 3, b; <br/>
+ *  "a = 3, b" is a DeclList */
 object DeclList extends VarDeclList with Statement {
 	def apply(n:RhinoAST.VariableDeclaration):Node = new Complex(this, getDeclList(n, Some(";")))
 	override def toString = "decl-stmt"
 }
-
+/** The var declaration list in a for loop initializer */
 object DeclForLoopInit extends VarDeclList {
 	def apply(n:RhinoAST.VariableDeclaration):Node = new Complex(this, getDeclList(n, None))
 	override def toString = "var-for-init"

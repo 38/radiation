@@ -4,6 +4,8 @@ import org.mozilla.javascript.ScriptRuntime
 
 import scala.annotation.tailrec
 
+import Base64Int.fromStream
+
 class SyntaxError(message:String) extends Exception {
 	override def toString = "Syntax Error: %s" format message
 }
@@ -14,6 +16,8 @@ case class StringLiteral(what:String) extends Token {
 }
 case class IntegerLiteral(what:Int) extends Token;
 case class Keyword(what:String) extends Token;
+case object VLQListBegin extends Token;
+case object VLQListEnd   extends Token;
 
 /** The SourceMap Lexer, a subset of JSON */
 object Lexer {
@@ -66,34 +70,46 @@ object Lexer {
 		case _int(_, i) #:: rem => _parseInt(rem, result * 10 + i)
 		case _                  => (chars, result)
 	}
-	def apply(chars:Stream[Char]):Stream[Token] = chars match {
-		case c #:: rem if (c == '"' || c == '\'') => {
+	@tailrec
+	def apply(chars:Stream[Char], state:Int = 0):Stream[Token] = chars match {
+		case c #:: rem if ((c == '"' || c == '\'') && state == 2) => VLQListBegin #:: apply(chars, 3) 
+		case c #:: rem if (c == 3) => {
+			val (what, remaining) = fromStream(chars)
+			what #:: apply(remaining, 3)
+		}
+		/* TODO: close the list */
+		case c #:: rem if (c == '"' || c == '\'')  => {
 			val strval = new StringBuilder
 			val (unparsed, what) = _parseString(rem, strval, c)
-			StringLiteral(what) #:: apply(unparsed)
+			val nextState = state match {
+				case 0 if(what == "name") => 1
+				case _                    => 0
+			}
+			StringLiteral(what) #:: apply(unparsed, status)
 		}
 		case _int(true, i) #:: rem => {
 			val (unparsed, what) = _parseInt(rem, i)
-			IntegerLiteral(what) #:: apply(unparsed)
+			IntegerLiteral(what) #:: apply(unparsed, 0)
 		}
-		case 'n' #:: 'u' #:: 'l' #:: 'l' #:: (rem @ (c #:: _)) if('a' <= c && c <= 'z') => Keyword("null") #:: apply(rem)
-		case _whitespace(()) #:: rem    => apply(rem)
-		case whatever #:: rem => Keyword(whatever.toString) #:: apply(rem)
+		case 'n' #:: 'u' #:: 'l' #:: 'l' #:: (rem @ (c #:: _)) if('a' <= c && c <= 'z') => Keyword("null") #:: apply(rem, 0)
+		case _whitespace(()) #:: rem    => apply(rem, state)
+		case ':' #:: rem if(state == 1) => Keyword(":") #:: apply(rem, 2)
+		case whatever #:: rem => Keyword(whatever.toString) #:: apply(rem, 0)
 		case Stream() => Stream()
 	}
-    }
-    /** A minimized JSON parser sepecified for source map */
-    object Parser {
+}
+/** A minimized JSON parser sepecified for source map */
+object Parser {
 	/*private def _parseJSONBody(tokens:Stream[Token], result:Map[(String, Any)]):(Stream[Token], Map[(String, Any)]) = {
-        }
-	private def _parseSourceMap(tokens:Stream[Token]):SourceMap = tokens match {
-	    case Keyword("{") #:: next  =>  {
-	        val (remaining, dict) = _parseJSONBody(next, Map())
-	        new SourceMap(Nil)
-            }
-	    case _                      => throw new SyntaxError("Source map must start with `{'")
-        }
-	def apply(chars:Stream[Char]):SourceMap = {
-	    
-        }*/
     }
+	private def _parseSourceMap(tokens:Stream[Token]):SourceMap = tokens match {
+	case Keyword("{") #:: next  =>  {
+	    val (remaining, dict) = _parseJSONBody(next, Map())
+	    new SourceMap(Nil)
+        }
+	case _                      => throw new SyntaxError("Source map must start with `{'")
+    }
+	def apply(chars:Stream[Char]):SourceMap = {
+	
+    }*/
+}
