@@ -16,5 +16,6 @@ object Main {
 		val mappingFile = new PrintWriter("../jquery.debug.map")
 		mappingFile.println(map.dump)
 		mappingFile.close
+		System.out.println(com.github._38.radiation.sourcemap.Lexer("{\"names\":\"AAAA,AAAA;AAAA,AAAC\"}".toStream).toList)
 	}
 }

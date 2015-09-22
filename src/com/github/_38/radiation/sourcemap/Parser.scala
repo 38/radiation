@@ -18,7 +18,8 @@ case class IntegerLiteral(what:Int) extends Token;
 case class Keyword(what:String) extends Token;
 case object VLQListBegin extends Token;
 case object VLQListEnd   extends Token;
-
+case object NextSegment  extends Token;
+case object NextLine     extends Token;
 /** The SourceMap Lexer, a subset of JSON */
 object Lexer {
 	private object _hex {
@@ -70,22 +71,23 @@ object Lexer {
 		case _int(_, i) #:: rem => _parseInt(rem, result * 10 + i)
 		case _                  => (chars, result)
 	}
-	@tailrec
 	def apply(chars:Stream[Char], state:Int = 0):Stream[Token] = chars match {
-		case c #:: rem if ((c == '"' || c == '\'') && state == 2) => VLQListBegin #:: apply(chars, 3) 
-		case c #:: rem if (c == 3) => {
+		case c #:: rem if ((c == '"' || c == '\'') && state == 2) => VLQListBegin #:: apply(rem, (c << 8) + 3)
+		case ',' #:: rem if ((state & 0xff) == 3) => NextSegment #:: apply(rem, state)
+		case ';' #:: rem if ((state & 0xff) == 3) => NextLine #:: apply(rem, state)
+		case c #:: rem if ((state & 0xff) == 3) => {
 			val (what, remaining) = fromStream(chars)
-			what #:: apply(remaining, 3)
+			IntegerLiteral(what.value) #:: apply(remaining, state)
 		}
-		/* TODO: close the list */
+		case c #:: rem if ((state & 0xff) == 3 && (state >> 8) == c) => VLQListEnd #:: apply(rem, 0)
 		case c #:: rem if (c == '"' || c == '\'')  => {
 			val strval = new StringBuilder
 			val (unparsed, what) = _parseString(rem, strval, c)
 			val nextState = state match {
-				case 0 if(what == "name") => 1
+				case 0 if(what == "names") => 1
 				case _                    => 0
 			}
-			StringLiteral(what) #:: apply(unparsed, status)
+			StringLiteral(what) #:: apply(unparsed, state)
 		}
 		case _int(true, i) #:: rem => {
 			val (unparsed, what) = _parseInt(rem, i)
