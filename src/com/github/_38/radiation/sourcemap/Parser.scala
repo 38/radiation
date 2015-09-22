@@ -73,13 +73,13 @@ object Lexer {
 	}
 	def apply(chars:Stream[Char], state:Int = 0):Stream[Token] = chars match {
 		case c #:: rem if ((c == '"' || c == '\'') && state == 2) => VLQListBegin #:: apply(rem, (c << 8) + 3)
+		case c #:: rem if ((state & 0xff) == 3 && (state >> 8) == c) => VLQListEnd #:: apply(rem, 0)
 		case ',' #:: rem if ((state & 0xff) == 3) => NextSegment #:: apply(rem, state)
 		case ';' #:: rem if ((state & 0xff) == 3) => NextLine #:: apply(rem, state)
 		case c #:: rem if ((state & 0xff) == 3) => {
 			val (what, remaining) = fromStream(chars)
 			IntegerLiteral(what.value) #:: apply(remaining, state)
 		}
-		case c #:: rem if ((state & 0xff) == 3 && (state >> 8) == c) => VLQListEnd #:: apply(rem, 0)
 		case c #:: rem if (c == '"' || c == '\'')  => {
 			val strval = new StringBuilder
 			val (unparsed, what) = _parseString(rem, strval, c)
@@ -87,7 +87,7 @@ object Lexer {
 				case 0 if(what == "names") => 1
 				case _                    => 0
 			}
-			StringLiteral(what) #:: apply(unparsed, state)
+			StringLiteral(what) #:: apply(unparsed, nextState)
 		}
 		case _int(true, i) #:: rem => {
 			val (unparsed, what) = _parseInt(rem, i)
