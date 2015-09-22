@@ -84,7 +84,7 @@ object Lexer {
 			val strval = new StringBuilder
 			val (unparsed, what) = _parseString(rem, strval, c)
 			val nextState = state match {
-				case 0 if(what == "names") => 1
+				case 0 if(what == "mappings") => 1
 				case _                    => 0
 			}
 			StringLiteral(what) #:: apply(unparsed, nextState)
@@ -102,14 +102,17 @@ object Lexer {
 }
 /** A minimized JSON parser sepecified for source map */
 object Parser {
-	/*private def _parseJSONBody(tokens:Stream[Token], result:Map[(String, Any)]):(Stream[Token], Map[(String, Any)]) = {
+	/*
+	private def _parseJSONStringValue(tokens:Stream[Token]):(Stream[Token], (String, String)) = tokens match {
+	    case StringLiteral(key) #:: Keyword(":") #:: StringLiteral(value) #:: next => (next, (key, value))
+	    case _ => throw new SyntaxError("Invalid string value")
     }
 	private def _parseSourceMap(tokens:Stream[Token]):SourceMap = tokens match {
-	case Keyword("{") #:: next  =>  {
-	    val (remaining, dict) = _parseJSONBody(next, Map())
-	    new SourceMap(Nil)
+	    case Keyword("{") #:: next  =>  {
+	        val (remaining, dict) = _parseJSONBody(next, Map())
+	        new SourceMap(Nil)
         }
-	case _                      => throw new SyntaxError("Source map must start with `{'")
+	    case _                      => throw new SyntaxError("Source map must start with `{'")
     }
 	def apply(chars:Stream[Char]):SourceMap = {
 	
