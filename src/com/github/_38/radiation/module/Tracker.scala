@@ -69,19 +69,18 @@ object Tracker extends ModuleBase {
 		}
 	}
 """.js
-	def traverse(root:Node):Unit = root match {
+	def traverse(root:Node, parentType:NodeType):Unit = root match {
 		case node:Complex => {
-			if(node.nodeType.isInstanceOf[Expression] && !node.finalFlag) {
+			if(node.nodeType.isInstanceOf[Expression] && (!node.finalFlag) && (!parentType.isInstanceOf[Expression])) {
 				System.out.println(node.nodeType + "\t" + node.finalFlag + "\t" + node.targetCode)
-				//TODO make the expression tracked
 			}
-			node.child.foreach(ch => traverse(ch))
+			node.child.foreach(ch => traverse(ch, node.nodeType))
 			//TODO create new childnode if needed
 		}
 		case _ => ()
 	}
 	def run(ast:Node):Node = {
-		traverse(ast)
+		traverse(ast,Empty)
 		ast
 	}
 }
