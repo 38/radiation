@@ -7,7 +7,7 @@ import com.github._38.radiation.ast._
 import Helper.fromString
 
 /** @note we should assume that the ast is already processed by closure exposure module
- *        So that we can assume all functions in Tracer Scope has __colsure__ property 
+ *        So that we can assume all functions in Tracer Scope has __colsure__ property
  *        That means we use __closure__ object to check the boundary of tracking scope
  */
 object Tracker extends ModuleBase {
@@ -69,6 +69,19 @@ object Tracker extends ModuleBase {
 		}
 	}
 """.js
-	System.out.println(header(0).targetCode)
-	def run(ast:Node):Node = ast
+	def traverse(root:Node):Unit = root match {
+		case node:Complex => {
+			if(node.nodeType.isInstanceOf[Expression] && !node.finalFlag) {
+				System.out.println(node.nodeType + "\t" + node.finalFlag + "\t" + node.targetCode)
+				//TODO make the expression tracked
+			}
+			node.child.foreach(ch => traverse(ch))
+			//TODO create new childnode if needed
+		}
+		case _ => ()
+	}
+	def run(ast:Node):Node = {
+		traverse(ast)
+		ast
+	}
 }

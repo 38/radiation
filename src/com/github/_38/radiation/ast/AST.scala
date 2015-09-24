@@ -33,9 +33,12 @@ trait Node {
 	val lastChar:Char
 	/** gets the first charecter in the target code */
 	val firstChar:Char
+	val finalFlag = Node.finalFlag
 }
 
 object Node {
+	/** The global that indicates if all created node since then are final node(Change not allowed for this node, not for the subtree) */
+	var finalFlag = false
 	/** Implicitly convert a Rhino Ast Node to Node
 	 *  @note the node type object FuncExpr handle both Function Expression and Function Statement (which represents as ExprStmt(FuncExpr(...))
 	 */
@@ -420,7 +423,7 @@ object EmptyStmt extends Statement {
 	override def toString = "empty-stmt"
 }
 
-object ExprStmt extends Expression {
+object ExprStmt extends Statement {
 	def apply(n:RhinoAST.ExpressionStatement) = new Complex(this, n.getExpression.asNode :: ";".at(n, 0) :: Nil)
 	def unapply(n:Node) = _unapply[Node](n, (_(0)))
 	override def toString = "expr-stmt"
@@ -626,6 +629,12 @@ object AST {
 	val codeEnv = new CompilerEnvirons;
 	val tempEnv = new CompilerEnvirons;
 	tempEnv.setCodeGeneratorMode(false)
-	def parseFromString(code:String):Node = (new Parser(tempEnv)).parse(code, "<template>", 0)
-	def parseFromSource(path:String):Node = (new Parser(codeEnv)).parse(new FileReader(path), path, 0)
+	def parseFromString(code:String):Node = {
+		Node.finalFlag = true
+		(new Parser(tempEnv)).parse(code, "<template>", 0)
+	}
+	def parseFromSource(path:String):Node = {
+		Node.finalFlag = false
+		(new Parser(codeEnv)).parse(new FileReader(path), path, 0)
+	}
 }

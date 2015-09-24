@@ -8,13 +8,13 @@ object Main {
 		//System.out.println(ret)
 		//System.out.println(ret.targetCode)
 		//System.out.println(map.dump)
-		import java.io.{PrintWriter, File}
+		/*import java.io.{PrintWriter, File}
 		val targetFile = new PrintWriter("../jquery.debug.js")
 		targetFile.println(ret.targetCode)
 		targetFile.println("//# sourceMappingURL=jquery.debug.map")
 		targetFile.close
 		val mappingFile = new PrintWriter("../jquery.debug.map")
 		mappingFile.println(map.dump)
-		mappingFile.close
+		mappingFile.close*/
 	}
 }

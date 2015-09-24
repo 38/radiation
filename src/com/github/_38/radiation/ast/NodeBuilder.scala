@@ -9,6 +9,7 @@ class NodeBuilder(original:Complex) {
 	private val _buffer = ListBuffer[Node]()
 	private var _current:Option[List[Node]] = Some(original.child)
 	private var _type = original.nodeType
+	private val _final = original.finalFlag
 	def setType(nodeType:NodeType) {
 		if(!(nodeType eq original.nodeType)) _current = None
 		_type = nodeType
@@ -23,9 +24,12 @@ class NodeBuilder(original:Complex) {
 	def ++= (that:List[Node]) {
 		that.foreach(this.append)
 	}
-	def toNode = _current match {
-		case Some(Nil)  =>  original
-		case _          =>  new Complex(_type, _buffer.toList)
+	def toNode = {
+		Node.finalFlag = _final
+		_current match {
+			case Some(Nil)  =>  original
+			case _          =>  new Complex(_type, _buffer.toList)
+		}
 	}
 }
 object NodeBuilder {

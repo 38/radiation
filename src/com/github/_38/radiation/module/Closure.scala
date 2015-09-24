@@ -53,6 +53,7 @@ object Closure extends ModuleBase {
 		getActiveSymbol(root)
 		var buffer = ListBuffer[Node]()
 		var first = true
+		Node.finalFlag = true
 		for(symbol <- localSymbol) {
 			if(symbolRef contains symbol) {
 				val symbolName = new Complex(Id, (symbol:Lexical) :: Nil)
@@ -71,6 +72,7 @@ object Closure extends ModuleBase {
 		case node:Complex => {
 			def _nextId = {
 				functionIndex += 1
+				Node.finalFlag = true
 				new Complex(Num, (functionIndex.toString:Lexical) :: Nil)
 			}
 			val nb = NodeBuilder(node)
@@ -93,6 +95,7 @@ object Closure extends ModuleBase {
 	}
 	def run(program:Node) = {
 		val Program(result) :: _ = changeFunction(program, Set(), Empty)
+		Node.finalFlag = false
 		new Complex(Program, header ++ result)
 	}
 }
