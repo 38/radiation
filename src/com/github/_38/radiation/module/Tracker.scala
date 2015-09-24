@@ -7,7 +7,9 @@ import com.github._38.radiation.ast._
 import Helper.fromString
 
 /** @note we should assume that the ast is already processed by closure exposure module
- *        So that we can assume all functions in Tracer Scope has __colsure__ property */
+ *        So that we can assume all functions in Tracer Scope has __colsure__ property 
+ *        That means we use __closure__ object to check the boundary of tracking scope
+ */
 object Tracker extends ModuleBase {
 	val header = """
 	/* if the global is not initliazed, initialize it */
@@ -52,17 +54,20 @@ object Tracker extends ModuleBase {
 			unpack: function(value) {
 				if(value.__$packed$__ == true) return value.value
 				return value
-			}
+			},
 			/* get the return value of the expression */
-		   ret: function(tracked, args) {
-			   if(args.caller === undefined || args.caller.__closure__ == undefined)
+		   ret: function (tracked, func) {
+			   if(func.caller === undefined || func.caller.__closure__ == undefined)
 				   return $_$t.unpack(tracked)
 			   return tracked
+		   },
+		   /* make an argument */
+		   getarg: function(arg, func) {
+		 	   if(func.caller === undefined || func.caller.__closure__ == undefined) return unpack(arg)
+			   return arg
 		   }
-		   //TODO: prepare the call args
 		}
 	}
-	
 """.js
 	System.out.println(header(0).targetCode)
 	def run(ast:Node):Node = ast
