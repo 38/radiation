@@ -349,7 +349,9 @@ object Call extends Expression {
 /** Represents a switch case */
 object Case extends NodeType {
 	def apply(n:RhinoAST.SwitchCase) = new Complex(this, if(n.getExpression != null)
-	    "case".at(n,0) :: n.getExpression.asNode :: ":".at(n,1) :: n.getStatements.asScala.map(_.asNode).toList
+	    "case".at(n,0) :: n.getExpression.asNode :: ":".at(n,1) :: (
+	        if(n.getStatements != null) n.getStatements.asScala.map(_.asNode).toList
+	        else Nil )
 	else
 	    "default".at(n,0) :: ":".at(n,1) :: n.getStatements.asScala.map(_.asNode).toList
 	)

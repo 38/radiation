@@ -1,3 +1,9 @@
+package com.github._38.radiation.module;
+import com.github._38.radiation.template.Template._
+
+object TrackerJS {
+	val header =
+	"""
 /* if the global is not initliazed, initialize it */
 try {
 	$t
@@ -23,7 +29,7 @@ try {
 				else return unsigned(value * 2)
 			}
 			/* The log format have two kinds of integer, absolute value and differnt. And
-			 * Dot(.) is the signal to toggle the two different format. At the begining of 
+			 * Dot(.) is the signal to toggle the two different format. At the begining of
 			 * the log, it's in absolute mode
 			 * Each log item contains a tag id, a value id and a list of dependency, and the
 			 * dependency ends with the two same tag:
@@ -88,8 +94,8 @@ try {
 				/* Emit a new log item, basically recording what the value is and the dependencies
 				 * It's a primitive emit when a new value has been created,
 				 * If it's an object emit when the prototype or data structure is changed. The source of this change should be :
-				 *   Object creation: it's prototype // affcted by the constructor 
-				 *   Adding a new key   // affected by the key 
+				 *   Object creation: it's prototype // affcted by the constructor
+				 *   Adding a new key   // affected by the key
 				 *   delete a key       // N/A
 				 */
 				emit: function(value, deps) {
@@ -153,82 +159,5 @@ try {
 		}
 	}
 }
-
-function fib(n) {
-	if(/* n <= 0 */$t.unpack(function() {
-		var __read_1 = n
-		var __result = $t.log.emit($t.unpack(__read_1) <= 0, [__read_1.__tracking_tag__])
-		return __result   /* TODO if the arguments.callee.caller is cross the boundary */
-	}())) return (/* 1 */function () {
-		var __result = $t.log.emit(1)
-		return __result
-	}())
-	else return $t.exportIfNeeded((/* fib(n - 1) + fib(n - 2) */ function () {
-		var __apply_1 = fib($t.exportIfNeeded(/* n - 1 */function () {
-			var __read_1 = n
-			var __result = $t.log.emit($t.unpack(n) - 1, [__read_1.__tracking_tag__])
-			return __result
-		}(), fib))
-		var __apply_2 = fib($t.exportIfNeeded(/* n - 2 */ function () {
-			var __read_1 = n
-			var __result = $t.log.emit($t.unpack(n) - 2, [__read_1.__tracking_tag__])
-			return __result
-		}(), fib))
-		var __result =  $t.log.emit($t.unpack(__apply_1) + $t.unpack(__apply_2), [__apply_1.__tracking_tag__, __apply_2.__tracking_tag__])
-		return __result
-	})(), arguments.callee.caller)
+""".js
 }
-
-function fibloop(n) {
-	var a = function () {
-		var __result = $t.log.emit(1)
-		return __result
-	}();
-	var b = function () {
-		var __result = $t.log.emit(1)
-		return __result
-	}();
-	for(var i = function () {
-		var __result = $t.log.emit(0)
-		return __result
-	}(); $t.unpack(function () {
-		var __read_1 = i
-		var __read_2 = n
-		var __result = $t.log.emit($t.unpack(__read_1) < $t.unpack(__read_2) + 1, [__read_1.__tracking_tag__, __read_2.__tracking_tag__])
-		return __result
-	}()); $t.unpack(function () {
-		var __read_1 = i;
-		var __result = $t.log.emit($t.unpack(__read_1) + 1, [__read_1.__tracking_tag__])
-		i = __result
-		return __result
-	}())) {
-		var tmp = a;
-		(function () {
-			var __read_1 = a;
-			var __read_2 = b;
-			var __result = $t.log.emit($t.unpack(__read_1) + $t.unpack(__read_2), [__read_1.__tracking_tag__, __read_2.__tracking_tag__])
-			a = __result
-			return __result
-		}());
-		(function () {
-			var __result = tmp;
-			b = __result;
-			return __result
-		}());
-	}
-	return ($t.exportIfNeeded(function () {
-		var __result = tmp;
-		return __result
-	}(), arguments.callee.caller))
-}
-
-fib.__closure__ = 2
-fibloop.__closure__ = 3
-
-function externalFunction() {
-	console.debug(fib(15) + 2);
-}
-console.debug(fib(15))
-console.debug(fibloop(15))
-externalFunction()
-
