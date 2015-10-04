@@ -11,27 +11,22 @@ import Helper.fromString
  *        That means we use __closure__ object to check the boundary of tracking scope
  */
 object Tracker extends ModuleBase {
-	private def _modifyLHS(ast:Node, stack:List[Node], localScope:Boolean, readMap:Map[Id, Node], writeMap:Map[Id,Write], expr:Node):(Map[Id,Node], Map[Id,Node], Node)
-	{
-		//TODO transform the left hand-side, basically this will produce a read-set write-set and a transformed expression
+
+	class TrackerException(message:String) extends Exception {
+		override toString = "Tracker Exception: " + message
 	}
-	private def _modifyExpr(ast:Node, stack:List[Node], localScope:Boolean) = {
-		//TODO transform this expression to a function with read section, computation section and write section
-		// The pattern of this should be
-		// function () {
-		//    $ReadSection$ //read section can be function apply, that means we modify all arguments by this function and then export them
-		//    result = emit($ModifiedExpression$, redSection's tags, code localtion)
-		//    //writeSet = result
-		//    return result
-		// } ()
+	private def _modifyStatement(ast:Node, stack:List[Node]) = {
+		if(!ast.nodeType.isInstanceOf[Statement]) throw new TrackerException("Statement expected bug " + ast.nodeType + " found")
+		val nb = new NodeBuilder(ast)
+		//TODO modify different types of statements
 	}
-	private def _modifyStmt(ast:Node, stack:List[Node], localScope:Boolean) = {
-		//TODO check if this needs a unpack or export
-		// if, switch and for condiftion, while condition, catch condition needs to be unpacked
-		
-	}
-	private def _modifyProgram(ast:Node, stack:List[Node]) = ast match {
-		case Program(stmts) => stmts.map(stmt => _modifyStm(stmt, stmt :: stack, false))
+	private def _modifyProgram(ast:Node, stack:List[Node]) = {
+		if(ast.nodeType != Program) throw new TrackerException("Program required but " + ast.nodeType + " found")
+		val nb = new NodeBuilder(ast)
+		ast.child.foreach(child => {
+			nb ++= _modifyStatement(child, child :: stack) 
+		})
+		nb.toNode
 	}
 	def run(ast:Node):Node = {
 		val Program(result) = ast
