@@ -144,6 +144,8 @@ case class Lexical(val what:String, val where:Location) extends Node{
 			new Lexical(what, InSource(l.getFileName, l.getLineno, l.getColumn))
 		} else this
 	}
+	/** In case scala can not figure out the implicit conversion, we do need a helper propery  that return itself */
+	def node = this
 	override def toString = "(%s `%s' %s)".format(nodeType, what, where)
 }
 

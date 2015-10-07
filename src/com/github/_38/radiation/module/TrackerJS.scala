@@ -167,8 +167,9 @@ object TrackerJS {
 	$t.b = $t.unpack
 	$t.c = $t.exportIfNeeded
 	""".js
-	val emit = "$t.a"
-	val unpack = "$t.b"
-	val export = "$t.c"
-	val gettag = "$t.d"
+	val emit = "$t.a".e
+	val unpack = "$t.b".e
+	val export = "$t.c".e
+	val gettag = "$t.d".e
+	val caller = "arguments.callee.caller"
 }
