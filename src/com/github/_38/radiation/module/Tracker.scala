@@ -11,40 +11,64 @@ import Helper.fromString
  *        That means we use __closure__ object to check the boundary of tracking scope
  */
 object Tracker extends ModuleBase {
-
+	
 	class TrackerException(message:String) extends Exception {
-		override toString = "Tracker Exception: " + message
+		override def toString = "Tracker Exception: " + message
+	}
+	/** Assert that this node is an complex */
+	private def _MustComplex[T](ast:Node, action: Complex => T):T = ast match {
+		case what:Complex => action(what)
+		case _            => throw new TrackerException("Code Bug: This Node Must be a Complex")
 	}
 	/** Export the value to a external function */
-	private def _export_return(expr:Node) = new Complex(Call, TrackerJS.emit :: "(".node :: expr :: ",".node :: TrackerJS.caller :: ")".node :: Nil)
-
+	private def _export_return(expr:Node) = if(!expr.finalFlag) {
+		Node.finalFlag = true
+		new Complex(Call, TrackerJS.emit :: "(".node :: expr :: ",".node :: TrackerJS.caller :: ")".node :: Nil)
+	} else expr
+	/** Unpack the primitive for external use */
+	private def _unpack(expr:Node) = if(!expr.finalFlag) {
+		Node.finalFlag = true
+		new Complex(Call, TrackerJS.unpack :: "(".node :: expr :: ")".node :: Nil)
+	} else expr
+	/** Modify the expression */
 	private def _modifyExpression(ast:Node, stack:List[Node]) = {
-		if(!ast.nodeType.instanceof[Expression]) throw new TrackerException("CodeBug: Expression expected but " + ast.nodeType + " found")
-		val nb = new NodeBuilder(ast)
-		//TODO handle 1.funbction 2.assigment 3.basic operators 4.index 5.call 
-		// first test code fib
-		ast match {
-		}
-		nb.toNode
+		if(!ast.nodeType.isInstanceOf[Expression]) throw new TrackerException("CodeBug: Expression expected but " + ast.nodeType + " found")
+		ast
 	}
-	private def _modifyStatement(ast:Node, stack:List[Node]):Node = {
-		if(!ast.nodeType.isInstanceOf[Statement]) throw new TrackerException("CodeBug: Statement expected but " + ast.nodeType + " found")
-		val nb = new NodeBuilder(ast)
-		ast match {
-			case Return(Some(expr)) => nb ++= (ast.child(0) :: _export_return(_modifyExpression(expr)) :: ast.child(1) :: Nil)
-			case ExprStmt(expr)     => nb ++= (_modifyExpression(expr) :: ast.child(1) :: Nil)
-			case _					=> ast
-		}
-		nb.toNode
-	}
-	private def _modifyProgram(ast:Node, stack:List[Node]):Node = {
+	private def _modifyStatement(ast:Node, stack:List[Node]):Node = _MustComplex[Node](ast, ast => {
+		    if(!ast.nodeType.isInstanceOf[Statement]) throw new TrackerException("CodeBug: Statement expected but " + ast.nodeType + " found")
+		    var exportSet = Set[Int]()
+		    var unpackSet = Set[Int]()
+		    ast.nodeType match {
+			    case what:ConditionalControlFlow => unpackSet = Set(what.testExpr) /* All the test expression should be unpacked */
+			    case Return | Throw              => exportSet = Set(1)             /* All throw and return expression should be exported */
+		    }
+		    val nb = new NodeBuilder(ast)
+		    var idx = 0;
+		    ast.child.foreach(child => {
+			    val resultNode = child.nodeType match {
+				    case _:Expression => {
+					    val modified = _modifyStatement(child, child :: stack)
+					    if(exportSet contains idx) _export_return(modified)
+					    else if(unpackSet contains idx) _unpack(modified)
+					    else modified
+				    }
+				    case _:Statement => _modifyStatement(child, child :: stack)
+				    case _			 => child
+			    }
+			    nb append resultNode
+			    idx = idx + 1
+		    })
+		    nb.toNode
+	})
+	private def _modifyProgram(ast:Node, stack:List[Node]):Node = _MustComplex[Node](ast, ast => {
 		if(ast.nodeType != Program) throw new TrackerException("CodeBug: Program required but " + ast.nodeType + " found")
 		val nb = new NodeBuilder(ast)
 		ast.child.foreach(child => {
-			nb ++= _modifyStatement(child, child :: stack) 
+			nb append _modifyStatement(child, child :: stack)
 		})
 		nb.toNode
-	}
+	})
 	def run(ast:Node):Node = {
 		val Program(result) = ast
 		new Complex(Program, TrackerJS.header ++ result)

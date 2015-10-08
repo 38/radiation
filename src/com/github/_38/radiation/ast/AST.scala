@@ -409,7 +409,8 @@ object Debugger extends Statement {
 	override def toString = "debugger"
 }
 
-object DoWhile extends Loop {
+object DoWhile extends Loop with ConditionalControlFlow {
+	val testExpr = 2
 	def apply(n:RhinoAST.DoLoop) = new Complex(this, "do".at(n,0) :: n.getBody.asNode :: "while".at(n,1) :: "(".at(n,2) :: n.getCondition.asNode :: ")".at(n,3) :: Nil)
 	def unapply(n:Node) = _unapply[(Node, Node)](n, x => (x(1), x(4)))
 	override def toString = "do-while"
@@ -439,7 +440,8 @@ object False extends Constant {
 	override def toString = "false"
 }
 
-object For extends ForLoop {
+object For extends ForLoop with ConditionalControlFlow {
+	val testExpr = 3
 	def apply(n:RhinoAST.ForLoop) = new Complex(this, "for".at(n,0) :: "(".at(n,1) ::
 	                                                  n.getInitializer.asNode :: ";".at(n,2) ::
 	                                                  n.getCondition.asNode :: ";".at(n,3) ::
@@ -494,7 +496,8 @@ object Id extends Expression {
 	override def toString = "id"
 }
 
-object If extends ControlFlow {
+object If extends ConditionalControlFlow {
+	val testExpr = 2
 	def apply(n:RhinoAST.IfStatement) = new Complex(this, "if".at(n, 0) :: "(".at(n,1) :: n.getCondition.asNode :: ")".at(n,2) :: n.getThenPart.asNode ::
 	                                                       (if(n.getElsePart != null) "else".at(n,3) :: n.getElsePart.asNode :: Nil else Nil))
 	def unapply(n:Node) = _unapply[(Node, Node, Option[Node])](n, x => (x(2), x(4), if(x.length > 5) Some(x(6)) else None))
@@ -579,7 +582,8 @@ object Str extends Constant {
 	override def toString = "str"
 }
 
-object Switch extends ControlFlow {
+object Switch extends ConditionalControlFlow {
+	val testExpr = 2
 	def apply(n:RhinoAST.SwitchStatement) = new Complex(this, ("switch".at(n,0) :: "(".at(n,1) :: n.getExpression.asNode :: ")".at(n,2) ::
 	                                                           "{".at(n,3) :: n.getCases.asScala.map(_.asNode).toList) :+ "}".at(n,4))
 	def unapply(n:Node) = _unapply[(Node, List[Node])](n, x => (x(2), x.slice(5, x.length - 1)))
@@ -620,7 +624,8 @@ object Try extends Statement {
 	override def toString = "try"
 }
 
-object While extends Loop {
+object While extends Loop with ConditionalControlFlow {
+	val testExpr = 2
 	def apply(n:RhinoAST.WhileLoop) = new Complex(this, "while".at(n,0) :: "(".at(n,1) :: n.getCondition.asNode :: ")".at(n,2) :: n.getBody.asNode :: Nil)
 	def unapply(n:Node) = _unapply[(Node, Node)](n, x => (x(2), x(4)))
 	override def toString = "while"

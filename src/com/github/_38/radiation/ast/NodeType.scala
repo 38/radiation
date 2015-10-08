@@ -11,6 +11,10 @@ trait LocalScope    extends Scope
 trait GlobalScope   extends Scope
 trait Function      extends NodeType with LocalScope
 trait ControlFlow   extends Statement
+trait ConditionalControlFlow extends ControlFlow {
+	/** The index of the test expression in the child list */
+	val testExpr:Int
+}
 trait Loop          extends ControlFlow
 trait ForLoop       extends Loop
 trait Constant      extends Expression

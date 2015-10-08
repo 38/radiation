@@ -1,5 +1,6 @@
 package com.github._38.radiation.module;
 import com.github._38.radiation.template.Template._
+import com.github._38.radiation.ast.ExprStmt
 
 object TrackerJS {
 	val header =
@@ -167,9 +168,9 @@ object TrackerJS {
 	$t.b = $t.unpack
 	$t.c = $t.exportIfNeeded
 	""".js
-	val emit = "$t.a".e
-	val unpack = "$t.b".e
-	val export = "$t.c".e
-	val gettag = "$t.d".e
-	val caller = "arguments.callee.caller"
+	val ExprStmt(emit) = "$t.a".js.head
+	val ExprStmt(unpack) = "$t.b".js.head
+	val ExprStmt(export) = "$t.c".js.head
+	val ExprStmt(gettag) = "$t.d".js.head
+	val ExprStmt(caller) = "arguments.callee.caller".js.head
 }
