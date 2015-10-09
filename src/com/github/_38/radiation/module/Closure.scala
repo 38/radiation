@@ -86,7 +86,7 @@ object Closure extends ModuleBase {
 			node.child.foreach(child => nb ++= changeFunction(child, currentLocalSymbols, node.nodeType))
 			val new_node = nb.toNode
 			new_node match {
-				case ExprStmt(f @ FuncExpr(Some(name), _, _))       => funcDef.render(f, name, _nextId, getClosure(node, localSymbols))
+				case ExprStmt(FuncExpr(Some(name), _, _))           => funcDef.render(new_node, name, _nextId, getClosure(node, localSymbols))
 				case f @ FuncExpr(_, _, _) if parent != ExprStmt    => funcExp.render(_nextId, f, getClosure(node, localSymbols)) :: Nil
 				case _                                              => new_node :: Nil
 			}

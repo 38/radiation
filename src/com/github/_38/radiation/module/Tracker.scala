@@ -33,7 +33,10 @@ object Tracker extends ModuleBase {
 	/** Modify the expression */
 	private def _modifyExpression(ast:Node, stack:List[Node]) = {
 		if(!ast.nodeType.isInstanceOf[Expression]) throw new TrackerException("CodeBug: Expression expected but " + ast.nodeType + " found")
-		ast
+		//1. Constant && Function
+		//2. Assignement
+		//3. Others
+		
 	}
 	private def _modifyStatement(ast:Node, stack:List[Node]):Node = _MustComplex[Node](ast, ast => {
 		    if(!ast.nodeType.isInstanceOf[Statement]) throw new TrackerException("CodeBug: Statement expected but " + ast.nodeType + " found")
@@ -42,13 +45,14 @@ object Tracker extends ModuleBase {
 		    ast.nodeType match {
 			    case what:ConditionalControlFlow => unpackSet = Set(what.testExpr) /* All the test expression should be unpacked */
 			    case Return | Throw              => exportSet = Set(1)             /* All throw and return expression should be exported */
+			    case _							 => ()
 		    }
 		    val nb = new NodeBuilder(ast)
 		    var idx = 0;
 		    ast.child.foreach(child => {
 			    val resultNode = child.nodeType match {
 				    case _:Expression => {
-					    val modified = _modifyStatement(child, child :: stack)
+					    val modified = _modifyExpression(child, child :: stack)
 					    if(exportSet contains idx) _export_return(modified)
 					    else if(unpackSet contains idx) _unpack(modified)
 					    else modified
@@ -70,7 +74,7 @@ object Tracker extends ModuleBase {
 		nb.toNode
 	})
 	def run(ast:Node):Node = {
-		val Program(result) = ast
+		val Program(result) = _modifyProgram(ast, Nil)
 		new Complex(Program, TrackerJS.header ++ result)
 	}
 }
