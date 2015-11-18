@@ -266,7 +266,7 @@ abstract class VarDeclList extends NodeType {
 	/** whatever(decl-type, var-init-list) </br>
 	 *  decl-type: may be "var", "let" or "const </br>"
 	 *  var-init-list: the var list that this statement declares */
-	def unapply(n:Node) = _unapply[(String, List[Node])](n, x => (x(0).targetCode, x.drop(1)))
+	def unapply(n:Node) = _unapply[(String, List[Node])](n, x => (x(0).targetCode, x.drop(1).grouped(2).map(_(0)).toList))
 }
 
 /************ Node Type Objects **************/
